@@ -1,0 +1,675 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     |
+    \\  /    A nd           | www.openfoam.com
+     \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 Laurent Orgogozo
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Application
+    permaFoam_v1906 (permaFoam tested with OpenFOAM_v1906)
+
+Description
+    Transient solver for water and thermal transfers in unsaturated porous
+        media with freeze/thaw of the pore water.
+    See Orgogozo et al. PPP 2019 for the implementation of thermal transfers
+        resolution.
+    See Grenier et al. AWR 2018 for the validation of the numerical resolution
+        thermal transfers.
+    See Orgogozo et al. CPC 2014 and Orgogozo CPC 2015 for the implementation
+        and validation of water transfers resolution.
+    Handling of non-linearities : Picard loops.
+    Coupling between equations : Sequential operator splitting.
+    Global computations of the convergence criteria.
+    Empirical adaptative time stepping with stabilisation procedure.
+    NB : use backward scheme for time discretisation.
+
+References
+    [1] Orgogozo, L., Prokushkin, A.S., Pokrovsky, O.S., Grenier, C., Quintard,
+      M., Viers, J., Audry, S. (2019). Water and energy transfer modeling in a
+      permafrost-dominated, forested catchment of Central Siberia: the key role
+      of rooting depth. Permafrost and Periglacial Processes, 30, 75-89.
+      https://doi.org/10.1002/ppp.1995
+      https://hal.archives-ouvertes.fr/hal-02014619
+    [2] Grenier, C., Anbergen, H., Bense, V., Chanzy, Q., Coon, E., Collier,
+      N., Costard, F., Ferry, M., Frampton, A., Frederick, J., Gonçalvès, J.,
+      Holmén, J., Jost, A., Kokh, S., Kurylyk, B., McKenzie, J., Molson, J.,
+      Mouche, E., Orgogozo, L., Pannetier, R., Rivière, A., Roux, N., Rühaak,
+      W., Scheidegger, J., Selroos J.-O., Therrien R., Vidstrand P., Voss C.
+      (2018). Groundwater flow and heat transport for systems undergoing
+      freeze-thaw: Intercomparison of numerical simulators for 2D test cases.
+      Advances in Water Resources, 114, 196-218.
+      https://doi.org/10.1016/j.advwatres.2018.02.001
+      https://hal.archives-ouvertes.fr/hal-01396632
+    [3] Orgogozo L. 2015. RichardsFoam2: a new version of RichardsFoam devoted
+      to the modelling of the vadose zone. Computer Physics Communications,
+      196, 619-620.
+      https://doi.org/10.1016/j.cpc.2015.07.009
+      https://hal.archives-ouvertes.fr/hal-01299854
+    [4] Orgogozo L., Renon N., Soulaine C., Hénon F., Tomer S.K., Labat D.,
+      Pokrovsky O.S., Sekhar M., Ababou R., Quintard M. 2014a. An open source
+      massively parallel solver for Richards equation: Mechanistic modelling of
+      water fluxes at the watershed scale. Computer Physics Communications,
+      185, 3358-3371.
+      https://doi.org/10.1016/j.cpc.2014.08.004
+      http://oatao.univ-toulouse.fr/12140/
+
+\*---------------------------------------------------------------------------*/
+
+#include "fvCFD.H"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+int main(int argc, char *argv[])
+{
+    #include "postProcess.H"
+    #include "setRootCase.H"
+    #include "createTime.H"
+    #include "createMesh.H"
+    #include "createControl.H"
+    #include "createTimeControls.H"
+    #include "createFields.H"
+    #include "initContinuityErrs.H"
+    #include "readPicardControls.H"
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+//                           Initialisation
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+// Number of mesh cells
+
+    double nbMesh;
+    nbMesh = gSum(usf);
+
+// Initialisation of the scalars containing the residuals for the exit tests of
+// the Picard loops.
+
+    double crit;
+    crit = 0.;
+
+    double critTh;
+    critTh = 0.;
+
+// Initialisations of the tokens for the adaptative time stepping procedure
+
+    int currentPicardFlow;
+    currentPicardFlow = nIterPicardFlow - 3;
+
+    int currentPicardThermal;
+    currentPicardThermal = nIterPicardThermal - 3;
+
+    int scf;
+    scf = 0;
+
+    int scth;
+    scth = 0;
+
+// Initialisaton of the test of non-advection of ice
+
+    double testConv;
+    testConv = 0.;
+    volScalarField fTestConv = theta - thetag;
+
+// Scalars for getting the minimum temperature and the maximum temperature
+// within the domain
+
+    double valTmin;
+    valTmin = 0.;
+
+    double valTmax;
+    valTmax = 0.;
+
+// Initialisation of the Richards equation parameters
+
+    volVectorField positionVector = mesh.C();
+
+    volScalarField z = positionVector.component(vector::Z);
+
+    volScalarField psi_tmp = psi;
+
+    volScalarField psim1 = psi;
+
+    volScalarField thtil = 0.5*
+                           ((1 + sign(psi))
+                           +
+                           (1 - sign(psi))*
+                           pow(
+                                  (1 + pow(
+                                              mag(alpha*psi),
+                                              n
+                                          )
+                                   ),
+                                  - (1 - (1/n)))
+                              ); // See equation (A.5), in [1] Appendix S1
+
+
+    volScalarField thtil_tmp = 0.5*
+                               ((1 + sign(psi_tmp))+(1 - sign(psi_tmp))*
+                               pow(
+                                      (1 + pow(
+                                                  mag(alpha*psi_tmp),
+                                                  n
+                                              )
+                                      ),
+                                      -(1 - (1/n)))
+                                  ); // See equation (A.5), in [1] Appendix S1
+
+
+    volScalarField Krel = max(KrThMin,pow(10.,-omega*thetag))*
+                          (
+                              0.5*(
+                                      (1 + sign(psi))*
+                                      K
+                                      +
+                                      (1 - sign(psi))*
+                                      K*
+                                      pow(thtil,0.5)*
+                                      pow(
+                                             (1-pow(
+                                                      (1-pow(thtil,(n/(n-1)))),
+                                                      (1 - (1/n)))
+                                                   ),
+                                             2
+                                         )
+                                  )
+                          ); // See equations (A.4), (A.7) and (A.8),
+                                                          // in [1] Appendix S1
+
+    volScalarField Crel = S + 0.5*
+                              (
+                                  (1 - sign(psi))*
+                                  (
+                                      (thetas - thetar)*
+                                      (thtil - thtil_tmp)*
+                                      (
+                                          1./
+                                          (
+                                              (
+                                                  usf*
+                                                  pos0(psi - psi_tmp)*
+                                                  pos0(psi_tmp - psi)
+                                              )
+                                              +
+                                              psi
+                                              -
+                                              psi_tmp
+                                          )
+                                      )
+                                  )
+                              ); // See equation (A.6), in [1] Appendix S1
+
+    volVectorField gradk = fvc::grad(Krel);
+
+    volScalarField gradkz = gradk.component(vector::Z);
+
+// Initialisation of the velocity field computation
+
+    surfaceScalarField flupsi = fvc::snGrad(psi);
+
+    surfaceScalarField fluK = fvc::interpolate(Krel,"interpolate(Krel)");
+
+    surfaceVectorField norFace = mesh.Sf()/mesh.magSf();
+
+    surfaceScalarField fluvuz = norFace.component(vector::Z);
+
+    U = -fluK*(flupsi + fluvuz); // See equation (A.2), in [1] Appendix S1
+
+    surfaceScalarField phi = Cthw*U*mesh.magSf();
+
+    Uvol = -Krel*(
+                 (fvc::grad(psi,"grad(psi)"))
+                 +
+                 vuz
+                 ); // See equation (A.2), in [1] Appendix S1
+
+// Initialisation of the Heat transfer equation parameters
+
+    volScalarField Cdg = -
+                         L*
+                         (1 + sign(Tmelt - T))*
+                         0.5*
+                         theta*
+                         (1 - (thetar/theta))*
+                         (2.*(T - Tmelt)/(W*W))*
+                         exp(
+                                -pow(((T - Tmelt)/W),2)
+                            ); // See equations (A.3) and (A.9),
+                                                          // in [1] Appendix S1
+
+    volScalarField T_tmp = T;
+
+    volScalarField Tm1 = T;
+
+    volScalarField thetag_tmp = thetag;
+
+    volScalarField Kth = Kthdim*
+                         pow(Kthsoil*(1./Kthdim),(1. - thetas))*
+                         pow(Kthw*(1./Kthdim),thetal)*
+                         pow(Kthice*(1./Kthdim),thetag)*
+                         pow(Kthair*(1./Kthdim),(thetas - theta)); // See
+                                         // equation (A.13), in [1] Appendix S1
+
+    volScalarField Cth = (1. - thetas)*Cthsoil
+                         +
+                         thetal*Cthw
+                         +
+                         thetag*Cthice
+                         +
+                         (thetas - theta)*Cthair; // See equation (A.14), in
+                                                             // [1] Appendix S1
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+//                    Beginning of the resolution
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+    Info<< "\nStarting time loop\n" << endl;
+
+    while (runTime.loop())
+
+    { // Loop 1 opening - temporal iterations //
+
+        #include "readTimeControls.H"
+        #include "setDeltaT.H"
+
+       Info<< "Time = " << runTime.timeName() << nl << endl;
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+//                    Richards equation solving
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+        for (int cyc = 0; cyc < nMaxCycle; cyc++)
+        { // Loop 2 opening - adaptive time stepping loop //
+
+// Computation of the Actual Evapotranspiration sink term
+// for the current time step
+            AET = PET*
+                  (1. + sign(((thetal - thetaWP)/(runTime.deltaTValue()*tdim))
+                                                                       - PET))*
+                  0.5
+                  +
+                  ((thetal - thetaWP)/(runTime.deltaTValue()*tdim))*
+                  (1. - sign(((thetal-thetaWP)/(runTime.deltaTValue()*tdim))
+                                                                       - PET))*
+                  (1. - sign(thetaWP-thetal))*
+                  0.25; // See equations (A.11) and (A.12), in [1] Appendix S1
+
+            for (int picf = 0; picf < nIterPicardFlow; picf++)
+            { // Loop 3 opening - Picard iterations for Richards equation //
+
+                psim1 = psi;
+
+                psi = psi_tmp;
+
+// Resolution of the linear system.
+                fvScalarMatrix psiEqn
+                (
+                    Crel*fvm::ddt(psi)
+                 ==
+                    fvm::laplacian(Krel, psi, "laplacian(Krel,psi)")
+                    + gradkz
+                    - AET
+                ); // See equation (A.1), in [1] Appendix S1
+
+                psiEqn.solve();
+
+// update of the varying transport properties.
+                thtil = 0.5*
+                        (
+                            (1 + sign(psi)) + (1 - sign(psi))*
+                            pow(
+                                   (1 + pow(
+                                                mag(alpha*psi),
+                                                n
+                                            )),
+                                   -(1 - (1/n))
+                               )
+                         ); // See equation (A.5), in [1] Appendix S1
+
+                Krel = max(KrThMin, pow(10., - omega*thetag))*
+                       (
+                           0.5*
+                           (
+                               (1 + sign(psi))*K
+                               +
+                               (1 - sign(psi))*
+                               K*
+                               pow(thtil, 0.5)*
+                               pow(
+                                      (1 - pow(
+                                                  (1 -pow(thtil, (n/(n-1)))),
+                                                  (1-(1/n))
+                                              )),
+                                      2
+                                  )
+                           )
+                       ); // See equations (A.4), (A.7) and (A.8), in [1]
+                                                                 // Appendix S1
+
+                Crel = S + 0.5*(
+                                   (1 - sign(psi))*
+                                   (
+                                       (thetas - thetar)*
+                                       (thtil - thtil_tmp)*
+                                       (1./((usf*pos0(psi - psi_tmp)*pos0(
+                                              psi_tmp - psi)) + psi - psi_tmp))
+                                   )
+                               ); // See equation (A.6), in [1] Appendix S1
+
+// update of the gravity term.
+                gradk = fvc::grad(Krel);
+
+                gradkz = gradk.component(2);
+
+// updated of water content
+                theta = (thetas - thetar)*thtil + thetar;
+
+// test of non-advection of ice
+                fTestConv = 0.5*(1. - sign(theta - thetag));
+
+                testConv = gSum(fTestConv);
+
+// exit test of the Picard loop.
+// note the use of gSum instead of sum.
+                err = psi - psim1;
+
+                crit = gSumMag(err)/nbMesh;
+
+                if ((crit < precPicardFlow) && (testConv == 0.))
+                {
+                    Info<< " Erreur psi = " << crit
+                        << " Picard Flow = " << picf
+                        << nl << endl;
+                    currentPicardFlow = picf;
+                    break;
+                }
+
+            } // loop 3 closing - Picard iterations for Richards equation //
+
+// Update of the velocity field
+            flupsi = fvc::snGrad(psi);
+
+            fluK = fvc::interpolate(Krel,"interpolate(Krel)");
+
+            U = - fluK*(flupsi + fluvuz); // See equation (A.2), in [1]
+                                                                 // Appendix S1
+
+            Uvol = - Krel*((fvc::grad(psi,"grad(psi)")) + vuz); // See equation
+                                                   // (A.1), in [1] Appendix S1
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+//                    Heat transfer equation solving
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+// thermal fluxes normal to faces
+            phi = U*mesh.magSf()*Cthw;
+
+// Update of the fields of apparent thermal properties
+            Kth = Kthdim*
+                  pow(Kthsoil/Kthdim,(1. - thetas))*
+                  pow(Kthw/Kthdim, thetal)*
+                  pow(Kthice/Kthdim, thetag)*
+                  pow(Kthair/Kthdim, (thetas - theta)); // See equation (A.13),
+                                                          // in [1] Appendix S1
+
+            Cth = (1. - thetas)*Cthsoil
+                  + (theta - thetag)*Cthw
+                  + thetag*Cthice
+                  + (thetas - theta)*Cthair; // See equation (A.14), in [1]
+                                                                 // Appendix S1
+
+            for (int picth = 0; picth < nIterPicardThermal; picth++)
+            { // loop 4 opening - Picard iteration for thermal equation //
+
+                Tm1 = T;
+
+                T = T_tmp;
+
+//  Resolution of thermal transfers
+                fvScalarMatrix thEqn
+                (
+                    fvm::ddt(Cth+Cdg, T)
+                    + fvm::div(phi, T, "div(phi,T)")
+                    - fvm::laplacian(Kth, T, "laplacian(Kth,T)")
+                ); // See equation (A.3), in [1] Appendix S1
+
+                thEqn.solve();
+
+// Application of forced temperature bounds
+                T = min(max(T, Tminc), Tmaxc);
+
+//  Computation of phase changes
+                thetag = max(
+                                0.,
+                                (
+                                    1
+                                    +
+                                    sign(Tmelt - T))*
+                                    0.5*
+                                    (
+                                        theta
+                                        -
+                                        ((theta - thetar)*exp( - pow(((T -
+                                                                 Tmelt)/W), 2))
+                                        +
+                                        thetar
+                                    )
+                                )
+                            ); // See equation (A.9), in [1] Appendix S1
+
+                thetal = theta - thetag; // See equation (A.10), in [1]
+                                                                 // Appendix S1
+
+// Update of the fields of apparent thermal properties
+                Kth = Kthdim*
+                      pow(Kthsoil/Kthdim, (1. - thetas))*
+                      pow(Kthw/Kthdim, thetal)*
+                      pow(Kthice/Kthdim, thetag)*
+                      pow(Kthair/Kthdim, (thetas - theta)); // See equation
+                                                  // (A.13), in [1] Appendix S1
+
+                Cth= (1. - thetas)*Cthsoil
+                     + thetal*Cthw
+                     + thetag*Cthice
+                     + (thetas - theta)*Cthair; // See equation (A.14), in [1]
+                                                                 // Appendix S1
+
+// exit test of the thermal Picard loop
+// note the use of gSum instead of sum.
+                errT = mag(T - Tm1);
+
+                critTh = gMax(errT);
+
+                if (critTh < precPicardThermal)
+                {
+                    Info<< "Erreur T = " << critTh
+                        << " Picard Thermal = " << picth
+                        << nl << endl;
+                    currentPicardThermal = picth;
+                    break;
+                }
+
+            } // loop 4 closing - Picard iterations for thermal equation //
+
+// exit test of the temporal iteration loop ; exit if Richards AND thermal
+// resolutions are succesfull, and if there is no detectable ice advection
+            if
+            (
+                (critTh < precPicardThermal) &&
+                (crit < precPicardFlow) &&
+                (testConv == 0.)
+            )
+            {
+                break;
+            }
+
+            else if
+            (
+                (critTh >= precPicardThermal) &&
+                !(crit >= precPicardFlow)
+            )
+            {
+                Info<< "Thermal criterium not reached - computation "
+                    << "restarted with a smaller time step / Error T= "
+                    << critTh << nl
+                    << endl;
+                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+            }
+
+            else if
+            (
+                !(critTh >= precPicardThermal) &&
+                (crit >= precPicardFlow)
+            )
+            {
+                Info<< "Richards criterium not reached - computation "
+                    << "restarted with a smaller time step / Error psi = "
+                    << crit << nl
+                    << endl;
+                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+            }
+
+            else if (testConv > 0.)
+            {
+                Info<< "Ice advection - computation restarted with a smaller"
+                    << " time step / nbr of affected cells = " << testConv << nl
+                    << endl;
+                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+            }
+
+            else
+            {
+                Info<< "Flow and Thermal criteria not reached - computation"
+                    << " restarted with a smaller time step " << nl
+                    << " Error psi = " << crit << nl
+                    << " Error T = " << critTh << nl
+                    << endl;
+                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+            }
+
+        } // Loop 2 closing - adaptive time stepping loop //
+
+// displaying of error messages if needed //
+        if
+        (
+            (critTh >= precPicardThermal) &&
+            !(crit >= precPicardFlow)
+        )
+        {
+            Info<< "Failure in thermal convergence / Error T= " << critTh << nl
+                                                                       << endl;
+            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+        }
+
+        else if
+        (
+            !(critTh >= precPicardThermal) &&
+            (crit >= precPicardFlow)
+        )
+        {
+            Info<< "Failure in Richards convergence / Error psi = " << crit <<
+                                                                    nl << endl;
+            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+        }
+
+        else if
+        (
+            (critTh >= precPicardThermal) &&
+            (crit >= precPicardFlow)
+        )
+        {
+            Info<< "Failure in both Richards and thermal convergences " << nl
+                << " Error psi = " << crit << nl
+                << " Error T = " << critTh << nl
+                << endl;
+            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+        }
+
+//  update of the latent heat part of the apparent thermal capacity
+        Cdg = -
+              L*
+              (1+sign(Tmelt - T))*
+              0.5*
+              theta*
+              (1-(thetar/theta))*
+              (2.*(T - Tmelt)/(W*W))*
+              exp(-pow(((T - Tmelt)/W),2)); // See equations (A.3) and (A.9),
+                                                          // in [1] Appendix S1
+
+// Storage of the field of results for the Picard loops of the next time step
+        psi_tmp = psi;
+        psi_F = fvc::interpolate(psi,"interpolate(psi)");
+        thtil_tmp = 0.5*
+                    (
+                        (1 + sign(psi_tmp))
+                        +
+                        (1 - sign(psi_tmp))*
+                        pow(
+                               (1 + pow(mag(alpha*psi_tmp),n)),
+                               - (1 - (1/n))
+                           )
+                    ); // See equation (A.5), in [1] Appendix S1
+        T_tmp = T;
+        thetag_tmp = thetag;
+
+// thermal postprocessing operations
+        Tvisu = T - Tmelt;
+        T_F = fvc::interpolate(T);
+        gradT = fvc::snGrad(T);
+        valTmin = gMin(T);
+        valTmax = gMax(T);
+        Info<< "Tmin= " << valTmin << endl;
+        Info<< "Tmax= " << valTmax << endl;
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+//                    Writing of the output results
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+        runTime.write();
+
+        Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+            << nl << endl;
+
+    } // Loop 1 closing -temporal loop //
+
+    Info<< "\nEnd\n" << endl;
+
+    return 0;
+}
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -1,0 +1,4 @@
+cd thawingBank
+source commandsRun
+cd ../freezingBank
+source commandsRun
