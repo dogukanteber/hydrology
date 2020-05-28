@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 
     double testConv;
     testConv = 0.;
-    volScalarField fTestConv = theta - thetag;
+    volScalarField fTestConv(theta - thetag);
 
 // Scalars for getting the minimum temperature and the maximum temperature
 // within the domain
@@ -142,13 +142,16 @@ int main(int argc, char *argv[])
 
     volVectorField positionVector = mesh.C();
 
-    volScalarField z = positionVector.component(vector::Z);
+    volScalarField z(positionVector.component(vector::Z));
 
     volScalarField psi_tmp = psi;
 
     volScalarField psim1 = psi;
 
-    volScalarField thtil = 0.5*
+    // Equation (A.5), in [1] Appendix S1
+    volScalarField thtil
+    (
+                           0.5*
                            ((1 + sign(psi))
                            +
                            (1 - sign(psi))*
@@ -159,10 +162,14 @@ int main(int argc, char *argv[])
                                           )
                                    ),
                                   - (1 - (1/n)))
-                              ); // See equation (A.5), in [1] Appendix S1
+                              )
+    );
 
 
-    volScalarField thtil_tmp = 0.5*
+    // Equation (A.5), in [1] Appendix S1
+    volScalarField thtil_tmp
+    (
+                               0.5*
                                ((1 + sign(psi_tmp))+(1 - sign(psi_tmp))*
                                pow(
                                       (1 + pow(
@@ -171,10 +178,14 @@ int main(int argc, char *argv[])
                                               )
                                       ),
                                       -(1 - (1/n)))
-                                  ); // See equation (A.5), in [1] Appendix S1
+                                  )
+    );
 
 
-    volScalarField Krel = max(KrThMin,pow(10.,-omega*thetag))*
+    // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
+    volScalarField Krel
+    (
+                          max(KrThMin,pow(10.,-omega*thetag))*
                           (
                               0.5*(
                                       (1 + sign(psi))*
@@ -191,10 +202,13 @@ int main(int argc, char *argv[])
                                              2
                                          )
                                   )
-                          ); // See equations (A.4), (A.7) and (A.8),
-                                                          // in [1] Appendix S1
+                          )
+    );
 
-    volScalarField Crel = S + 0.5*
+    // Equation (A.6), in [1] Appendix S1
+    volScalarField Crel
+    (
+                          S + 0.5*
                               (
                                   (1 - sign(psi))*
                                   (
@@ -215,36 +229,41 @@ int main(int argc, char *argv[])
                                           )
                                       )
                                   )
-                              ); // See equation (A.6), in [1] Appendix S1
+                              )
+    );
 
-    volVectorField gradk = fvc::grad(Krel);
+    volVectorField gradk(fvc::grad(Krel));
 
-    volScalarField gradkz = gradk.component(vector::Z);
+    volScalarField gradkz(gradk.component(vector::Z));
 
 // Initialisation of the velocity field computation
 
-    surfaceScalarField flupsi = fvc::snGrad(psi);
+    surfaceScalarField flupsi(fvc::snGrad(psi));
 
-    surfaceScalarField fluK = fvc::interpolate(Krel,"interpolate(Krel)");
+    surfaceScalarField fluK(fvc::interpolate(Krel,"interpolate(Krel)"));
 
-    surfaceVectorField norFace = mesh.Sf()/mesh.magSf();
+    surfaceVectorField norFace(mesh.Sf()/mesh.magSf());
 
-    surfaceScalarField fluvuz = norFace.component(vector::Z);
+    surfaceScalarField fluvuz(norFace.component(vector::Z));
 
-    U = -fluK*(flupsi + fluvuz); // See equation (A.2), in [1] Appendix S1
+    // Equation (A.2), in [1] Appendix S1
+    U = -fluK*(flupsi + fluvuz);
 
-    surfaceScalarField phi = Cthw*U*mesh.magSf();
+    surfaceScalarField phi(Cthw*U*mesh.magSf());
 
+    // Equation (A.2), in [1] Appendix S1
     Uvol = -Krel*(
                  (fvc::grad(psi,"grad(psi)"))
                  +
                  vuz
-                 ); // See equation (A.2), in [1] Appendix S1
+                 );
 
 // Initialisation of the Heat transfer equation parameters
 
-    volScalarField Cdg = -
-                         L*
+    // Equations (A.3) and (A.9), in [1] Appendix S1
+    volScalarField Cdg
+    (
+                       - L*
                          (1 + sign(Tmelt - T))*
                          0.5*
                          theta*
@@ -252,8 +271,8 @@ int main(int argc, char *argv[])
                          (2.*(T - Tmelt)/(W*W))*
                          exp(
                                 -pow(((T - Tmelt)/W),2)
-                            ); // See equations (A.3) and (A.9),
-                                                          // in [1] Appendix S1
+                            )
+    );
 
     volScalarField T_tmp = T;
 
@@ -261,21 +280,27 @@ int main(int argc, char *argv[])
 
     volScalarField thetag_tmp = thetag;
 
-    volScalarField Kth = Kthdim*
+    // Equation (A.13), in [1] Appendix S1
+    volScalarField Kth
+    (
+                         Kthdim*
                          pow(Kthsoil*(1./Kthdim),(1. - thetas))*
                          pow(Kthw*(1./Kthdim),thetal)*
                          pow(Kthice*(1./Kthdim),thetag)*
-                         pow(Kthair*(1./Kthdim),(thetas - theta)); // See
-                                         // equation (A.13), in [1] Appendix S1
+                         pow(Kthair*(1./Kthdim),(thetas - theta))
+    );
 
-    volScalarField Cth = (1. - thetas)*Cthsoil
+    // Equation (A.14), in [1] Appendix S1
+    volScalarField Cth
+    (
+                         (1. - thetas)*Cthsoil
                          +
                          thetal*Cthw
                          +
                          thetag*Cthice
                          +
-                         (thetas - theta)*Cthair; // See equation (A.14), in
-                                                             // [1] Appendix S1
+                         (thetas - theta)*Cthair
+    );
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -286,13 +311,13 @@ int main(int argc, char *argv[])
     Info<< "\nStarting time loop\n" << endl;
 
     while (runTime.loop())
-
-    { // Loop 1 opening - temporal iterations //
+    {
+        // Loop 1 opening - temporal iterations //
 
         #include "readTimeControls.H"
         #include "setDeltaT.H"
 
-       Info<< "Time = " << runTime.timeName() << nl << endl;
+        Info<< "Time = " << runTime.timeName() << nl << endl;
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -301,10 +326,14 @@ int main(int argc, char *argv[])
 
 
         for (int cyc = 0; cyc < nMaxCycle; cyc++)
-        { // Loop 2 opening - adaptive time stepping loop //
+        {
+            // Loop 2 opening - adaptive time stepping loop //
 
 // Computation of the Actual Evapotranspiration sink term
 // for the current time step
+
+            // Equations (A.11) and (A.12), in [1] Appendix S1
+
             AET = PET*
                   (1. + sign(((thetal - thetaWP)/(runTime.deltaTValue()*tdim))
                                                                        - PET))*
@@ -314,16 +343,19 @@ int main(int argc, char *argv[])
                   (1. - sign(((thetal-thetaWP)/(runTime.deltaTValue()*tdim))
                                                                        - PET))*
                   (1. - sign(thetaWP-thetal))*
-                  0.25; // See equations (A.11) and (A.12), in [1] Appendix S1
+                  0.25;
 
             for (int picf = 0; picf < nIterPicardFlow; picf++)
-            { // Loop 3 opening - Picard iterations for Richards equation //
+            {
+                // Loop 3 opening - Picard iterations for Richards equation //
 
                 psim1 = psi;
 
                 psi = psi_tmp;
 
 // Resolution of the linear system.
+
+                // Equation (A.1), in [1] Appendix S1
                 fvScalarMatrix psiEqn
                 (
                     Crel*fvm::ddt(psi)
@@ -331,11 +363,13 @@ int main(int argc, char *argv[])
                     fvm::laplacian(Krel, psi, "laplacian(Krel,psi)")
                     + gradkz
                     - AET
-                ); // See equation (A.1), in [1] Appendix S1
+                );
 
                 psiEqn.solve();
 
 // update of the varying transport properties.
+
+                // Equation (A.5), in [1] Appendix S1
                 thtil = 0.5*
                         (
                             (1 + sign(psi)) + (1 - sign(psi))*
@@ -346,8 +380,10 @@ int main(int argc, char *argv[])
                                             )),
                                    -(1 - (1/n))
                                )
-                         ); // See equation (A.5), in [1] Appendix S1
+                         );
 
+
+                // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
                 Krel = max(KrThMin, pow(10., - omega*thetag))*
                        (
                            0.5*
@@ -365,9 +401,9 @@ int main(int argc, char *argv[])
                                       2
                                   )
                            )
-                       ); // See equations (A.4), (A.7) and (A.8), in [1]
-                                                                 // Appendix S1
+                       );
 
+                // Equation (A.6), in [1] Appendix S1
                 Crel = S + 0.5*(
                                    (1 - sign(psi))*
                                    (
@@ -376,7 +412,7 @@ int main(int argc, char *argv[])
                                        (1./((usf*pos0(psi - psi_tmp)*pos0(
                                               psi_tmp - psi)) + psi - psi_tmp))
                                    )
-                               ); // See equation (A.6), in [1] Appendix S1
+                               );
 
 // update of the gravity term.
                 gradk = fvc::grad(Krel);
@@ -413,11 +449,11 @@ int main(int argc, char *argv[])
 
             fluK = fvc::interpolate(Krel,"interpolate(Krel)");
 
-            U = - fluK*(flupsi + fluvuz); // See equation (A.2), in [1]
-                                                                 // Appendix S1
+            // Equation (A.2), in [1] Appendix S1
+            U = - fluK*(flupsi + fluvuz);
 
-            Uvol = - Krel*((fvc::grad(psi,"grad(psi)")) + vuz); // See equation
-                                                   // (A.1), in [1] Appendix S1
+            // Equation (A.1), in [1] Appendix S1
+            Uvol = - Krel*((fvc::grad(psi,"grad(psi)")) + vuz);
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -429,33 +465,35 @@ int main(int argc, char *argv[])
             phi = U*mesh.magSf()*Cthw;
 
 // Update of the fields of apparent thermal properties
+            // Equation (A.13), in [1] Appendix S1
             Kth = Kthdim*
                   pow(Kthsoil/Kthdim,(1. - thetas))*
                   pow(Kthw/Kthdim, thetal)*
                   pow(Kthice/Kthdim, thetag)*
-                  pow(Kthair/Kthdim, (thetas - theta)); // See equation (A.13),
-                                                          // in [1] Appendix S1
+                  pow(Kthair/Kthdim, (thetas - theta));
 
+            // Equation (A.14), in [1] Appendix S1
             Cth = (1. - thetas)*Cthsoil
                   + (theta - thetag)*Cthw
                   + thetag*Cthice
-                  + (thetas - theta)*Cthair; // See equation (A.14), in [1]
-                                                                 // Appendix S1
+                  + (thetas - theta)*Cthair;
 
             for (int picth = 0; picth < nIterPicardThermal; picth++)
-            { // loop 4 opening - Picard iteration for thermal equation //
+            {
+                // loop 4 opening - Picard iteration for thermal equation //
 
                 Tm1 = T;
 
                 T = T_tmp;
 
 //  Resolution of thermal transfers
+                // Equation (A.3), in [1] Appendix S1
                 fvScalarMatrix thEqn
                 (
                     fvm::ddt(Cth+Cdg, T)
                     + fvm::div(phi, T, "div(phi,T)")
                     - fvm::laplacian(Kth, T, "laplacian(Kth,T)")
-                ); // See equation (A.3), in [1] Appendix S1
+                );
 
                 thEqn.solve();
 
@@ -463,6 +501,7 @@ int main(int argc, char *argv[])
                 T = min(max(T, Tminc), Tmaxc);
 
 //  Computation of phase changes
+                // Equation (A.9), in [1] Appendix S1
                 thetag = max(
                                 0.,
                                 (
@@ -479,24 +518,26 @@ int main(int argc, char *argv[])
                                         thetar
                                     )
                                 )
-                            ); // See equation (A.9), in [1] Appendix S1
+                            );
 
-                thetal = theta - thetag; // See equation (A.10), in [1]
-                                                                 // Appendix S1
+                // Equation (A.10), in [1] Appendix S1
+                thetal = theta - thetag;
 
 // Update of the fields of apparent thermal properties
+
+                // Equation (A.13), in [1] Appendix S1
                 Kth = Kthdim*
                       pow(Kthsoil/Kthdim, (1. - thetas))*
                       pow(Kthw/Kthdim, thetal)*
                       pow(Kthice/Kthdim, thetag)*
-                      pow(Kthair/Kthdim, (thetas - theta)); // See equation
-                                                  // (A.13), in [1] Appendix S1
+                      pow(Kthair/Kthdim, (thetas - theta));
 
+                // Equation (A.14), in [1]  Appendix S1
                 Cth= (1. - thetas)*Cthsoil
                      + thetal*Cthw
                      + thetag*Cthice
-                     + (thetas - theta)*Cthair; // See equation (A.14), in [1]
-                                                                 // Appendix S1
+                     + (thetas - theta)*Cthair;
+
 
 // exit test of the thermal Picard loop
 // note the use of gSum instead of sum.
@@ -617,6 +658,7 @@ int main(int argc, char *argv[])
         }
 
 //  update of the latent heat part of the apparent thermal capacity
+        // Equations (A.3) and (A.9), in [1] Appendix S1
         Cdg = -
               L*
               (1+sign(Tmelt - T))*
@@ -624,12 +666,12 @@ int main(int argc, char *argv[])
               theta*
               (1-(thetar/theta))*
               (2.*(T - Tmelt)/(W*W))*
-              exp(-pow(((T - Tmelt)/W),2)); // See equations (A.3) and (A.9),
-                                                          // in [1] Appendix S1
+              exp(-pow(((T - Tmelt)/W),2));
 
 // Storage of the field of results for the Picard loops of the next time step
         psi_tmp = psi;
         psi_F = fvc::interpolate(psi,"interpolate(psi)");
+        // Equation (A.5), in [1] Appendix S1
         thtil_tmp = 0.5*
                     (
                         (1 + sign(psi_tmp))
@@ -639,7 +681,7 @@ int main(int argc, char *argv[])
                                (1 + pow(mag(alpha*psi_tmp),n)),
                                - (1 - (1/n))
                            )
-                    ); // See equation (A.5), in [1] Appendix S1
+                    );
         T_tmp = T;
         thetag_tmp = thetag;
 

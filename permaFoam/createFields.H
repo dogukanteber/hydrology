@@ -496,76 +496,40 @@
     );
 
 //- Liquid water thermal conductivity [kg.m.s-3.K-1]
-    dimensionedScalar Kthw
-    (
-        transportProperties.lookup("Kthw")
-    );
+    const dimensionedScalar Kthw("Kthw", transportProperties);
 
 //- Air thermal conductivity [kg.m.s-3.K-1]
-    dimensionedScalar Kthair
-    (
-        transportProperties.lookup("Kthair")
-    );
+    const dimensionedScalar Kthair("Kthair", transportProperties);
 
 //- Ice thermal conductivity [kg.m.s-3.K-1]
-    dimensionedScalar Kthice
-    (
-        transportProperties.lookup("Kthice")
-    );
+    const dimensionedScalar Kthice("Kthice", transportProperties);
 
 //- Liquid water heat capacity [kg.m-1.s-2.K-1]
-    dimensionedScalar Cthw
-    (
-        transportProperties.lookup("Cthw")
-    );
+    const dimensionedScalar Cthw("Cthw", transportProperties);
 
 //- Air heat capacity [kg.m-1.s-2.K-1]
-    dimensionedScalar Cthair
-    (
-        transportProperties.lookup("Cthair")
-    );
+    const dimensionedScalar Cthair("Cthair", transportProperties);
 
 //- Ice heat capacity [kg.m-1.s-2.K-1]
-   dimensionedScalar Cthice
-    (
-        transportProperties.lookup("Cthice")
-    );
+    const dimensionedScalar Cthice( "Cthice", transportProperties);
 
 //- Latent of fusion of ice [kg.m-1.s-2]
-   dimensionedScalar L
-    (
-        transportProperties.lookup("L")
-    );
+    const dimensionedScalar L("L", transportProperties);
 
-//- Dimensionnning factor for the computation of apparent thermal conductivity
-//  allways constant equal to 1 [kg.m.s-3.K-1]
-     dimensionedScalar Kthdim
-     (
-         transportProperties.lookup("Kthdim")
-     );
+//- Dimensioning factor for the computation of apparent thermal conductivity
+//  always constant equal to 1 [kg.m.s-3.K-1]
+    const dimensionedScalar Kthdim("Kthdim", transportProperties);
 
-//- Dimensionnning factor for the computation of actual evapotranspiration AET
-//  allways constant equal to 1 [s]
-    dimensionedScalar tdim
-    (
-        transportProperties.lookup("tdim")
-    );
+//- Dimensioning factor for the computation of actual evapotranspiration AET
+//  always constant equal to 1 [s]
+    const dimensionedScalar tdim("tdim", transportProperties);
 
 //- Dimensionnning factor for the phase changes tests
-//  allways constant equal to 1 [K]
-    dimensionedScalar T1
-    (
-        transportProperties.lookup("T1")
-    );
+//  always constant equal to 1 [K]
+    const dimensionedScalar T1("T1", transportProperties);
 
 //- Maximum temperature (forced bound) [K]
-    dimensionedScalar Tmaxc
-    (
-        transportProperties.lookup("Tmaxc")
-    );
+    const dimensionedScalar Tmaxc("Tmaxc", transportProperties);
 
 //- Minimum temperature (forced bound) [K]
-    dimensionedScalar Tminc
-    (
-        transportProperties.lookup("Tminc")
-    );
+    const dimensionedScalar Tminc("Tminc", transportProperties);
