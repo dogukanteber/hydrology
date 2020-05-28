@@ -103,46 +103,32 @@ int main(int argc, char *argv[])
 // Initialisation of the scalars containing the residuals for the exit tests of
 // the Picard loops.
 
-    double crit;
-    crit = 0.;
-
-    double critTh;
-    critTh = 0.;
+    scalar crit = 0;
+    scalar critTh = 0;
 
 // Initialisations of the tokens for the adaptative time stepping procedure
 
-    int currentPicardFlow;
-    currentPicardFlow = nIterPicardFlow - 3;
+    int currentPicardFlow = nIterPicardFlow - 3;
+    int currentPicardThermal = nIterPicardThermal - 3;
 
-    int currentPicardThermal;
-    currentPicardThermal = nIterPicardThermal - 3;
-
-    int scf;
-    scf = 0;
-
-    int scth;
-    scth = 0;
+    int scf = 0;
+    int scth = 0;
 
 // Initialisaton of the test of non-advection of ice
 
-    double testConv;
-    testConv = 0.;
+    scalar testConv = 0;
+
     volScalarField fTestConv(theta - thetag);
 
 // Scalars for getting the minimum temperature and the maximum temperature
 // within the domain
 
-    double valTmin;
-    valTmin = 0.;
-
-    double valTmax;
-    valTmax = 0.;
+    scalar valTmin = 0;
+    scalar valTmax = 0;
 
 // Initialisation of the Richards equation parameters
 
-    volVectorField positionVector = mesh.C();
-
-    volScalarField z(positionVector.component(vector::Z));
+    volScalarField z(mesh.C().component(vector::Z));
 
     volScalarField psi_tmp = psi;
 
@@ -359,12 +345,10 @@ int main(int argc, char *argv[])
                 fvScalarMatrix psiEqn
                 (
                     Crel*fvm::ddt(psi)
-                 ==
-                    fvm::laplacian(Krel, psi, "laplacian(Krel,psi)")
-                    + gradkz
-                    - AET
+                 == fvm::laplacian(Krel, psi, "laplacian(Krel,psi)")
+                  + gradkz
+                  - AET
                 );
-
                 psiEqn.solve();
 
 // update of the varying transport properties.
@@ -491,10 +475,9 @@ int main(int argc, char *argv[])
                 fvScalarMatrix thEqn
                 (
                     fvm::ddt(Cth+Cdg, T)
-                    + fvm::div(phi, T, "div(phi,T)")
-                    - fvm::laplacian(Kth, T, "laplacian(Kth,T)")
+                  + fvm::div(phi, T, "div(phi,T)")
+                  - fvm::laplacian(Kth, T, "laplacian(Kth,T)")
                 );
-
                 thEqn.solve();
 
 // Application of forced temperature bounds

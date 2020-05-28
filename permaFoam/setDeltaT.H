@@ -11,16 +11,14 @@ Description
 
 scalar deltaTFact = 1.;
 
-
 if (adjustTimeStep)
 {
     deltaTFact = 1.;
 
-
     if
     (
-        (currentPicardFlow > nIterPicardFlow -2) ||
-        (currentPicardThermal > nIterPicardThermal -2)
+        (currentPicardFlow > nIterPicardFlow -2)
+     || (currentPicardThermal > nIterPicardThermal -2)
     )
     {
         deltaTFact = 1./tFact;
@@ -53,13 +51,13 @@ if (adjustTimeStep)
     if
     (
         (
-            (currentPicardFlow < 3) &&
-            (scf >= stabilisationThresholdFlow)
+            (currentPicardFlow < 3)
+         && (scf >= stabilisationThresholdFlow)
         )
-        &&
+     &&
         (
-            (currentPicardThermal < 3) &&
-            (scth >= stabilisationThresholdThermal)
+            (currentPicardThermal < 3)
+         && (scth >= stabilisationThresholdThermal)
         )
     )
     {
@@ -80,7 +78,6 @@ if (adjustTimeStep)
             )
         );
     }
-
 
     Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
 }
