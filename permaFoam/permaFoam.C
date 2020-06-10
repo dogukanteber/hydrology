@@ -24,7 +24,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    permaFoam_v1906 (permaFoam tested with OpenFOAM_v1906)
+    permaFoam
 
 Description
     Transient solver for water and thermal transfers in unsaturated porous
@@ -39,7 +39,15 @@ Description
     Coupling between equations : Sequential operator splitting.
     Global computations of the convergence criteria.
     Empirical adaptative time stepping with stabilisation procedure.
-    NB : use backward scheme for time discretisation.
+    NB: use backward scheme for time discretisation.
+
+Contributors to the design and the writing of the code (chronological order):
+    Laurent Orgogozo
+    Cyprien Soulaine
+    Michel Quintard
+    Rachid Ababou
+    Christophe Grenier
+    Mark Olesen
 
 References
     [1] Orgogozo, L., Prokushkin, A.S., Pokrovsky, O.S., Grenier, C., Quintard,
@@ -128,7 +136,7 @@ int main(int argc, char *argv[])
 
 // Initialisation of the Richards equation parameters
 
-    volScalarField z(mesh.C().component(vector::Z));
+    const volScalarField z(mesh.C().component(vector::Z));
 
     volScalarField psi_tmp = psi;
 
@@ -264,8 +272,6 @@ int main(int argc, char *argv[])
 
     volScalarField Tm1 = T;
 
-    volScalarField thetag_tmp = thetag;
-
     // Equation (A.13), in [1] Appendix S1
     volScalarField Kth
     (
@@ -342,6 +348,7 @@ int main(int argc, char *argv[])
 // Resolution of the linear system.
 
                 // Equation (A.1), in [1] Appendix S1
+                {
                 fvScalarMatrix psiEqn
                 (
                     Crel*fvm::ddt(psi)
@@ -350,6 +357,7 @@ int main(int argc, char *argv[])
                   - AET
                 );
                 psiEqn.solve();
+                }
 
 // update of the varying transport properties.
 
@@ -472,6 +480,7 @@ int main(int argc, char *argv[])
 
 //  Resolution of thermal transfers
                 // Equation (A.3), in [1] Appendix S1
+                {
                 fvScalarMatrix thEqn
                 (
                     fvm::ddt(Cth+Cdg, T)
@@ -479,6 +488,7 @@ int main(int argc, char *argv[])
                   - fvm::laplacian(Kth, T, "laplacian(Kth,T)")
                 );
                 thEqn.solve();
+                }
 
 // Application of forced temperature bounds
                 T = min(max(T, Tminc), Tmaxc);
@@ -666,7 +676,6 @@ int main(int argc, char *argv[])
                            )
                     );
         T_tmp = T;
-        thetag_tmp = thetag;
 
 // thermal postprocessing operations
         Tvisu = T - Tmelt;
