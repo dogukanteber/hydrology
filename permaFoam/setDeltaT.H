@@ -2,85 +2,83 @@
                   Handling of adaptive time steping
 
 Description
-    Reset the timestep to maintain good convergence behaviours in non
-      linearities handling by picard Loops.
+    Reset the timestep to maintain good convergence behaviours in
+    non-linearities handling by Picard Loops.
+
     Reduction of time-step is immediate, but increase is damped to avoid
-      unstable oscillations.
+    unstable oscillations.
 
 \*---------------------------------------------------------------------------*/
 
-scalar deltaTFact = 1.;
-
 if (adjustTimeStep)
 {
-    deltaTFact = 1.;
+    constexpr int nIterPicardLimit = 3;
+
+    scalar deltaTFactor = 1;
 
     if
     (
-        (currentPicardFlow > nIterPicardFlow -2)
-     || (currentPicardThermal > nIterPicardThermal -2)
+        (currentPicardFlow > nIterPicardFlow - nIterPicardLimit + 1)
+     || (currentPicardThermal > nIterPicardThermal - nIterPicardLimit + 1)
     )
     {
-        deltaTFact = 1./tFact;
+        deltaTFactor = 1./tFact;
     }
 
 
-    if (currentPicardFlow >= 3)
+    if (currentPicardFlow < nIterPicardLimit)
     {
-        scf = 0;
+        ++stabilityCtrlFlow;
+    }
+    else
+    {
+        stabilityCtrlFlow = 0;  // Reset
     }
 
 
-    if (currentPicardThermal >= 3)
+    if (currentPicardThermal < nIterPicardLimit)
     {
-        scth = 0;
+        ++stabilityCtrlThermal;
     }
-
-
-    if (currentPicardFlow < 3)
+    else
     {
-        scf = scf+1;
-    }
-
-
-    if (currentPicardThermal < 3)
-    {
-        scth = scth+1;
+        stabilityCtrlThermal = 0;  // Reset
     }
 
     if
     (
         (
-            (currentPicardFlow < 3)
-         && (scf >= stabilisationThresholdFlow)
+            (currentPicardFlow < nIterPicardLimit)
+         && (stabilityCtrlFlow >= stabilityThresholdFlow)
         )
      &&
         (
-            (currentPicardThermal < 3)
-         && (scth >= stabilisationThresholdThermal)
+            (currentPicardThermal < nIterPicardLimit)
+         && (stabilityCtrlThermal >= stabilityThresholdThermal)
         )
     )
     {
-        deltaTFact = tFact;
-        scf = 0;
-        scth = 0;
+        deltaTFactor = tFact;
+        // Reset stability controls
+        stabilityCtrlFlow = 0;
+        stabilityCtrlThermal = 0;
     }
 
 
-    if (deltaTFact != 1.)
+    if (!equal(deltaTFactor, 1))
     {
         runTime.setDeltaT
         (
             min
             (
-                deltaTFact*runTime.deltaTValue(),
+                deltaTFactor*runTime.deltaTValue(),
                 maxDeltaT
             )
         );
     }
-
-    Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
 }
+
+Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
 
 
 // ************************************************************************* //

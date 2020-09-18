@@ -36,7 +36,7 @@ const int nIterPicardFlow =
 const scalar precPicardFlow =
     picardDict.lookupOrDefault<scalar>("precPicardFlow", 1e-3);
 
-const int stabilisationThresholdFlow =
+const int stabilityThresholdFlow =
     picardDict.lookupOrDefault<int>("stabilisationThresholdFlow", 50);
 
 
@@ -69,11 +69,11 @@ const scalar precPicardThermal =
         precPicardFlow
     );
 
-const int stabilisationThresholdThermal =
+const int stabilityThresholdThermal =
     picardDict.lookupOrDefault<int>
     (
         "stabilisationThresholdThermal",
-        stabilisationThresholdFlow
+        stabilityThresholdFlow
     );
 
 

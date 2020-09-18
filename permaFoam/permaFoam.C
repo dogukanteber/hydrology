@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     #include "createTimeControls.H"
     #include "createFields.H"
     #include "initContinuityErrs.H"
-    #include "readPicardControls.H"
+    #include "declarePicardControls.H"
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -105,8 +105,7 @@ int main(int argc, char *argv[])
 
 // Number of mesh cells
 
-    double nbMesh;
-    nbMesh = gSum(usf);
+    const label nbMesh = returnReduce(mesh.nCells(), sumOp<label>());
 
 // Initialisation of the scalars containing the residuals for the exit tests of
 // the Picard loops.
@@ -114,13 +113,6 @@ int main(int argc, char *argv[])
     scalar crit = 0;
     scalar critTh = 0;
 
-// Initialisations of the tokens for the adaptative time stepping procedure
-
-    int currentPicardFlow = nIterPicardFlow - 3;
-    int currentPicardThermal = nIterPicardThermal - 3;
-
-    int scf = 0;
-    int scth = 0;
 
 // Initialisaton of the test of non-advection of ice
 
@@ -305,7 +297,8 @@ int main(int argc, char *argv[])
     while (runTime.loop())
     {
         // Loop 1 opening - temporal iterations //
-
+        #include "readPicardControls.H"
+        #include "updatePicardControls.H"
         #include "readTimeControls.H"
         #include "setDeltaT.H"
 
@@ -315,7 +308,6 @@ int main(int argc, char *argv[])
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 //                    Richards equation solving
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 
         for (int cyc = 0; cyc < nMaxCycle; cyc++)
         {
@@ -409,7 +401,7 @@ int main(int argc, char *argv[])
 // update of the gravity term.
                 gradk = fvc::grad(Krel);
 
-                gradkz = gradk.component(2);
+                gradkz = gradk.component(vector::Z);
 
 // updated of water content
                 theta = (thetas - thetar)*thtil + thetar;
@@ -427,7 +419,7 @@ int main(int argc, char *argv[])
 
                 if ((crit < precPicardFlow) && (testConv == 0.))
                 {
-                    Info<< " Erreur psi = " << crit
+                    Info<< " Error psi = " << crit
                         << " Picard Flow = " << picf
                         << nl << endl;
                     currentPicardFlow = picf;
@@ -540,7 +532,7 @@ int main(int argc, char *argv[])
 
                 if (critTh < precPicardThermal)
                 {
-                    Info<< "Erreur T = " << critTh
+                    Info<< "Error T = " << critTh
                         << " Picard Thermal = " << picth
                         << nl << endl;
                     currentPicardThermal = picth;
@@ -560,7 +552,6 @@ int main(int argc, char *argv[])
             {
                 break;
             }
-
             else if
             (
                 (critTh >= precPicardThermal) &&
