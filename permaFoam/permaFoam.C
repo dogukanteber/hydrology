@@ -107,26 +107,12 @@ int main(int argc, char *argv[])
 
     const label nbMesh = returnReduce(mesh.nCells(), sumOp<label>());
 
-// Initialisation of the scalars containing the residuals for the exit tests of
-// the Picard loops.
-
-    scalar crit = 0;
-    scalar critTh = 0;
-
-
 // Initialisaton of the test of non-advection of ice
-
-    scalar testConv = 0;
 
     volScalarField fTestConv(theta - thetag);
 
-// Scalars for getting the minimum temperature and the maximum temperature
-// within the domain
 
-    scalar valTmin = 0;
-    scalar valTmax = 0;
-
-// Initialisation of the Richards equation parameters
+    // Initialisation of the Richards equation parameters
 
     const volScalarField z(mesh.C().component(vector::Z));
 
@@ -304,12 +290,17 @@ int main(int argc, char *argv[])
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
+        // Residual tests for exiting the Picard loops
+        scalar convergeFlow = 0;
+        scalar convergeThermal = 0;
+        scalar testConv = 0;
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 //                    Richards equation solving
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-        for (int cyc = 0; cyc < nMaxCycle; cyc++)
+        for (int cyc = 0; cyc < nMaxCycle; ++cyc)
         {
             // Loop 2 opening - adaptive time stepping loop //
 
@@ -329,7 +320,8 @@ int main(int argc, char *argv[])
                   (1. - sign(thetaWP-thetal))*
                   0.25;
 
-            for (int picf = 0; picf < nIterPicardFlow; picf++)
+
+            for (int picFlowi = 0; picFlowi < nIterPicardFlow; ++picFlowi)
             {
                 // Loop 3 opening - Picard iterations for Richards equation //
 
@@ -415,18 +407,19 @@ int main(int argc, char *argv[])
 // note the use of gSum instead of sum.
                 err = psi - psim1;
 
-                crit = gSumMag(err)/nbMesh;
+                convergeFlow = gSumMag(err)/nbMesh;
 
-                if ((crit < precPicardFlow) && (testConv == 0.))
+                if ((convergeFlow < precPicardFlow) && equal(testConv, 0))
                 {
-                    Info<< " Error psi = " << crit
-                        << " Picard Flow = " << picf
+                    currentPicardFlow = picFlowi;
+                    Info<< "Error psi = " << convergeFlow
+                        << " Picard Flow = " << currentPicardFlow
                         << nl << endl;
-                    currentPicardFlow = picf;
                     break;
                 }
 
             } // loop 3 closing - Picard iterations for Richards equation //
+
 
 // Update of the velocity field
             flupsi = fvc::snGrad(psi);
@@ -462,7 +455,7 @@ int main(int argc, char *argv[])
                   + thetag*Cthice
                   + (thetas - theta)*Cthair;
 
-            for (int picth = 0; picth < nIterPicardThermal; picth++)
+            for (int picThermi = 0; picThermi < nIterPicardThermal; ++picThermi)
             {
                 // loop 4 opening - Picard iteration for thermal equation //
 
@@ -526,120 +519,128 @@ int main(int argc, char *argv[])
 
 // exit test of the thermal Picard loop
 // note the use of gSum instead of sum.
+
                 errT = mag(T - Tm1);
 
-                critTh = gMax(errT);
+                convergeThermal = gMax(errT);
 
-                if (critTh < precPicardThermal)
+                if (convergeThermal < precPicardThermal)
                 {
-                    Info<< "Error T = " << critTh
-                        << " Picard Thermal = " << picth
+                    currentPicardThermal = picThermi;
+                    Info<< "Error T = " << convergeThermal
+                        << " Picard Thermal = " << currentPicardThermal
                         << nl << endl;
-                    currentPicardThermal = picth;
                     break;
                 }
 
             } // loop 4 closing - Picard iterations for thermal equation //
 
+
 // exit test of the temporal iteration loop ; exit if Richards AND thermal
 // resolutions are succesfull, and if there is no detectable ice advection
+
             if
             (
-                (critTh < precPicardThermal) &&
-                (crit < precPicardFlow) &&
-                (testConv == 0.)
+                (convergeFlow < precPicardFlow)
+             && (convergeThermal < precPicardThermal)
+             && equal(testConv, 0)
             )
             {
+                // Converged
                 break;
             }
-            else if
+
+            bool needTimeAdjustment = false;
+            if
             (
-                (critTh >= precPicardThermal) &&
-                !(crit >= precPicardFlow)
+                (convergeThermal >= precPicardThermal)
+             && (convergeFlow < precPicardFlow)
             )
             {
-                Info<< "Thermal criterium not reached - computation "
-                    << "restarted with a smaller time step / Error T= "
-                    << critTh << nl
-                    << endl;
-                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+                needTimeAdjustment = true;
+                Info<< "Thermal criterium not reached"
+                    " - computation restarted with a smaller time step. "
+                    << "Error T = " << convergeThermal << nl;
             }
-
             else if
             (
-                !(critTh >= precPicardThermal) &&
-                (crit >= precPicardFlow)
+                (convergeThermal < precPicardThermal)
+             && (convergeFlow >= precPicardFlow)
             )
             {
-                Info<< "Richards criterium not reached - computation "
-                    << "restarted with a smaller time step / Error psi = "
-                    << crit << nl
-                    << endl;
-                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+                needTimeAdjustment = true;
+                Info<< "Richards criterium not reached"
+                    " - computation restarted with a smaller time step. "
+                    << "Error psi = " << convergeFlow << nl;
             }
-
             else if (testConv > 0.)
             {
-                Info<< "Ice advection - computation restarted with a smaller"
-                    << " time step / nbr of affected cells = " << testConv << nl
-                    << endl;
-                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+                needTimeAdjustment = true;
+                Info<< "Ice advection"
+                    " - computation restarted with a smaller time step. "
+                    << "Affected cells = " << testConv << nl;
             }
-
             else
             {
-                Info<< "Flow and Thermal criteria not reached - computation"
-                    << " restarted with a smaller time step " << nl
-                    << " Error psi = " << crit << nl
-                    << " Error T = " << critTh << nl
-                    << endl;
+                needTimeAdjustment = true;
+                Info<< "Flow and Thermal criteria not reached"
+                    " - computation restarted with a smaller time step. "
+                    << nl
+                    << "Error psi = " << convergeFlow << nl
+                    << "Error T = " << convergeThermal << nl;
+            }
+
+            if (needTimeAdjustment)
+            {
                 runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-                Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+                Info<< "deltaT = " <<  runTime.deltaTValue() << nl << endl;
             }
 
         } // Loop 2 closing - adaptive time stepping loop //
 
-// displaying of error messages if needed //
-        if
-        (
-            (critTh >= precPicardThermal) &&
-            !(crit >= precPicardFlow)
-        )
+
+        // Display error messages, if any
         {
-            Info<< "Failure in thermal convergence / Error T= " << critTh << nl
-                                                                       << endl;
-            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+            bool needTimeAdjustment = false;
+            if
+            (
+                (convergeThermal >= precPicardThermal)
+             && (convergeFlow < precPicardFlow)
+            )
+            {
+                needTimeAdjustment = true;
+                Info<< "Failure in thermal convergence / Error T = "
+                    << convergeThermal << nl;
+            }
+            else if
+            (
+                (convergeThermal < precPicardThermal)
+             && (convergeFlow >= precPicardFlow)
+            )
+            {
+                needTimeAdjustment = true;
+                Info<< "Failure in Richards convergence / Error psi = "
+                    << convergeFlow << nl;
+            }
+            else if
+            (
+                (convergeThermal >= precPicardThermal) &&
+                (convergeFlow >= precPicardFlow)
+            )
+            {
+                needTimeAdjustment = true;
+                Info<< "Failure in Richards and thermal convergence" << nl
+                    << "Error psi = " << convergeFlow << nl
+                    << "Error T = " << convergeThermal << nl;
+            }
+
+            if (needTimeAdjustment)
+            {
+                runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
+                Info<< "deltaT = " <<  runTime.deltaTValue() << nl << endl;
+            }
         }
 
-        else if
-        (
-            !(critTh >= precPicardThermal) &&
-            (crit >= precPicardFlow)
-        )
-        {
-            Info<< "Failure in Richards convergence / Error psi = " << crit <<
-                                                                    nl << endl;
-            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
-        }
-
-        else if
-        (
-            (critTh >= precPicardThermal) &&
-            (crit >= precPicardFlow)
-        )
-        {
-            Info<< "Failure in both Richards and thermal convergences " << nl
-                << " Error psi = " << crit << nl
-                << " Error T = " << critTh << nl
-                << endl;
-            runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
-            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
-        }
 
 //  update of the latent heat part of the apparent thermal capacity
         // Equations (A.3) and (A.9), in [1] Appendix S1
@@ -672,10 +673,17 @@ int main(int argc, char *argv[])
         Tvisu = T - Tmelt;
         T_F = fvc::interpolate(T);
         gradT = fvc::snGrad(T);
-        valTmin = gMin(T);
-        valTmax = gMax(T);
-        Info<< "Tmin= " << valTmin << endl;
-        Info<< "Tmax= " << valTmax << endl;
+
+        #if OPENFOAM >= 1906
+        const MinMax<scalar> valTlimit = gMinMax(T);
+        Info<< "Tmin= " << valTlimit.min() << nl
+            << "Tmax= " << valTlimit.max() << endl;
+        #else
+        const scalar valTmin = gMin(T);
+        const scalar valTmax = gMax(T);
+        Info<< "Tmin= " << valTmin << nl
+            << "Tmax= " << valTmax << endl;
+        #endif
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -685,9 +693,7 @@ int main(int argc, char *argv[])
 
         runTime.write();
 
-        Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << nl << endl;
+        runTime.printExecutionTime(Info);
 
     } // Loop 1 closing -temporal loop //
 
