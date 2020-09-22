@@ -1,3 +1,6 @@
+derivedFvPatchFields/rainFluxMixedFvPatchScalarField.C
+derivedFvPatchFields/rainZeroGradientFvPatchScalarField.C
+
 permaFoam.C
 
 EXE = $(FOAM_USER_APPBIN)/permaFoam
