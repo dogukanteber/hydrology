@@ -64,7 +64,19 @@ rainZeroGradientFvPatchScalarField
 )
 :
     fixedGradientFvPatchScalarField(p, iF)
-{}
+{
+    if (dict.found("value") && dict.found("gradient"))
+    {
+        fvPatchField<scalar>::operator=(Field<scalar>("value", dict, p.size()));
+        gradient() = Field<scalar>("gradient", dict, p.size());
+    }
+    else
+    {
+        // Still reading so cannot yet evaluate. Make up a value.
+        fvPatchField<scalar>::operator=(patchInternalField());
+        gradient() = Zero;
+    }
+}
 
 
 Foam::rainZeroGradientFvPatchScalarField::
@@ -102,6 +114,7 @@ void Foam::rainZeroGradientFvPatchScalarField::write
 ) const
 {
     fixedGradientFvPatchScalarField::write(os);
+    writeEntry("value", os);
 }
 
 

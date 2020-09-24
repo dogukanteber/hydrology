@@ -341,7 +341,7 @@ updateCoeffs()
 
             const scalar gradValue =
             (
-                (negativeZ + currRate/Krel * direction_)
+                (negativeZ - currRate/Krel * direction_)
               & (Sf[patchFacei] / magSf[patchFacei])
             );
 
