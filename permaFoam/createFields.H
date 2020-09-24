@@ -237,7 +237,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -252,7 +252,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -267,7 +267,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -282,7 +282,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -297,7 +297,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -312,7 +312,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -330,7 +330,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -345,7 +345,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -360,7 +360,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -375,7 +375,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -390,7 +390,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -405,7 +405,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -420,7 +420,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -435,7 +435,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -455,7 +455,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -470,7 +470,7 @@
             runTime.timeName(),
             mesh,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
         mesh
     );
@@ -533,3 +533,6 @@
 
 //- Minimum temperature (forced bound) [K]
     const dimensionedScalar Tminc("Tminc", transportProperties);
+
+
+// ************************************************************************* //
