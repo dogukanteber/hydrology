@@ -25,14 +25,14 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "rainZeroGradientFvPatchScalarField.H"
+#include "noRainFluxGradientFvPatchScalarField.H"
 #include "fvPatchFieldMapper.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::rainZeroGradientFvPatchScalarField::
-rainZeroGradientFvPatchScalarField
+Foam::noRainFluxGradientFvPatchScalarField::
+noRainFluxGradientFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF
@@ -42,10 +42,10 @@ rainZeroGradientFvPatchScalarField
 {}
 
 
-Foam::rainZeroGradientFvPatchScalarField::
-rainZeroGradientFvPatchScalarField
+Foam::noRainFluxGradientFvPatchScalarField::
+noRainFluxGradientFvPatchScalarField
 (
-    const rainZeroGradientFvPatchScalarField& pfld,
+    const noRainFluxGradientFvPatchScalarField& pfld,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const fvPatchFieldMapper& mapper
@@ -55,8 +55,8 @@ rainZeroGradientFvPatchScalarField
 {}
 
 
-Foam::rainZeroGradientFvPatchScalarField::
-rainZeroGradientFvPatchScalarField
+Foam::noRainFluxGradientFvPatchScalarField::
+noRainFluxGradientFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
@@ -79,10 +79,10 @@ rainZeroGradientFvPatchScalarField
 }
 
 
-Foam::rainZeroGradientFvPatchScalarField::
-rainZeroGradientFvPatchScalarField
+Foam::noRainFluxGradientFvPatchScalarField::
+noRainFluxGradientFvPatchScalarField
 (
-    const rainZeroGradientFvPatchScalarField& pfld,
+    const noRainFluxGradientFvPatchScalarField& pfld,
     const DimensionedField<scalar, volMesh>& iF
 )
 :
@@ -92,7 +92,7 @@ rainZeroGradientFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::rainZeroGradientFvPatchScalarField::
+void Foam::noRainFluxGradientFvPatchScalarField::
 updateCoeffs()
 {
     if (updated())
@@ -108,7 +108,7 @@ updateCoeffs()
 }
 
 
-void Foam::rainZeroGradientFvPatchScalarField::write
+void Foam::noRainFluxGradientFvPatchScalarField::write
 (
     Ostream& os
 ) const
@@ -126,7 +126,7 @@ namespace Foam
 makePatchTypeField
 (
     fvPatchScalarField,
-    rainZeroGradientFvPatchScalarField
+    noRainFluxGradientFvPatchScalarField
 );
 
 } // End namespace Foam

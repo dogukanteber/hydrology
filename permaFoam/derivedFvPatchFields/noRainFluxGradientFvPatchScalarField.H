@@ -24,7 +24,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::rainZeroGradientFvPatchScalarField
+    Foam::noRainFluxGradientFvPatchScalarField
 
 Description
     Gradient boundary condition for rain that applies
@@ -32,17 +32,17 @@ Description
 
 Usage
     \table
-        Property     | Description                  | Required | Default
-        type         | "rainZeroGradient"           | yes |
+        Property     | Description                      | Required | Default
+        type         | "noRainFlux"                     | yes |
     \endtable
 
 SourceFiles
-    rainZeroGradientFvPatchScalarField.C
+    noRainFluxGradientFvPatchScalarField.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef rainZeroGradientFvPatchScalarField_H
-#define rainZeroGradientFvPatchScalarField_H
+#ifndef noRainFluxGradientFvPatchScalarField_H
+#define noRainFluxGradientFvPatchScalarField_H
 
 #include "fvPatchFields.H"
 #include "fixedGradientFvPatchFields.H"
@@ -53,30 +53,30 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class rainZeroGradientFvPatchScalarField Declaration
+            Class noRainFluxGradientFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
-class rainZeroGradientFvPatchScalarField
+class noRainFluxGradientFvPatchScalarField
 :
     public fixedGradientFvPatchScalarField
 {
 public:
 
     //- Runtime type information
-    TypeName("rainZeroGradient");
+    TypeName("noRainFlux");
 
 
     // Constructors
 
         //- Construct from patch and internal field
-        rainZeroGradientFvPatchScalarField
+        noRainFluxGradientFvPatchScalarField
         (
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&
         );
 
         //- Construct from patch, internal field and dictionary
-        rainZeroGradientFvPatchScalarField
+        noRainFluxGradientFvPatchScalarField
         (
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
@@ -84,9 +84,9 @@ public:
         );
 
         //- Construct by mapping onto a new patch
-        rainZeroGradientFvPatchScalarField
+        noRainFluxGradientFvPatchScalarField
         (
-            const rainZeroGradientFvPatchScalarField&,
+            const noRainFluxGradientFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
             const fvPatchFieldMapper&
@@ -97,7 +97,7 @@ public:
         {
             return tmp<fvPatchScalarField>
             (
-                new rainZeroGradientFvPatchScalarField
+                new noRainFluxGradientFvPatchScalarField
                 (
                     *this
                 )
@@ -105,9 +105,9 @@ public:
         }
 
         //- Construct as copy setting internal field reference
-        rainZeroGradientFvPatchScalarField
+        noRainFluxGradientFvPatchScalarField
         (
-            const rainZeroGradientFvPatchScalarField&,
+            const noRainFluxGradientFvPatchScalarField&,
             const DimensionedField<scalar, volMesh>&
         );
 
@@ -119,7 +119,7 @@ public:
         {
             return tmp<fvPatchScalarField>
             (
-                new rainZeroGradientFvPatchScalarField
+                new noRainFluxGradientFvPatchScalarField
                 (
                     *this,
                     iF
