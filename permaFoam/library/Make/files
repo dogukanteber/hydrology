@@ -1,0 +1,11 @@
+derivedFvPatchFields/rainFluxMixedFvPatchScalarField.C
+derivedFvPatchFields/noRainFluxGradientFvPatchScalarField.C
+
+/* modification of standards */
+functions/makeFunction1s.C
+
+/* special purpose */
+functions/thawing/thawingFieldFunction.C
+functions/seasonal/makeSeasonalVariation.C
+
+LIB = $(FOAM_MODULE_LIBBIN)/libpermaFoam

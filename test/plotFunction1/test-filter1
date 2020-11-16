@@ -1,0 +1,18 @@
+// -*- C++ -*-
+
+// This is filtered by pos0()/neg() to produce a switch
+// 0-148.5 day on, 148.5-307.5 off, 307.5-365 on
+
+filter1
+{
+    type        sine1;
+
+    t0          27594000.0;  // 319.375 days
+    period      31536000.0;  // 365 days
+
+    scale       1;
+    level       0.2;
+
+    // For plotting only. Makes it easier to see sign change
+    clip        (0 10);
+}

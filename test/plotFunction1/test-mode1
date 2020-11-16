@@ -1,0 +1,14 @@
+// -*- C++ -*-
+
+mode1
+{
+    type        sine1;
+
+    t0          22170240.0;  // 256.6 days
+    period      31536000.0;  // 365 days
+
+    scale       20.3;
+    level       265;
+    clip        (258.43 1000);  // min -15C
+}
+

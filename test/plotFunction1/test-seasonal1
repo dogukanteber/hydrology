@@ -1,0 +1,47 @@
+// -*- C++ -*-
+
+topN
+{
+    type  seasonal;
+
+    dualMode true;
+
+    // This is filtered by pos0()/neg() to produce a switch
+    modeSelector
+    {
+        type        square1;
+
+        t0          26568000.0;  // 307.5 days
+        period      31536000.0;  // 365 days
+
+        mark        206;   // mode1 (days)
+        space       159;   // mode2 (days)
+
+        scale       1;
+        level       0;
+    }
+
+    mode1
+    {
+        type        sine1;
+
+        t0          22170240.0;  // 256.6 days
+        period      31536000.0;  // 365 days
+
+        scale       20.3;
+        level       265;
+        clip        (258.43 1000);  // min -15C
+    }
+
+    mode2
+    {
+        type        sine1;
+
+        t0          15768000.0;  // 182.5 days
+        period      31536000.0;  // 365 days
+
+        scale       13.365;
+        level       267.31;
+        clip        (258.43 1000);  // min -15C
+    }
+}

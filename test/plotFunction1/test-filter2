@@ -1,0 +1,15 @@
+// -*- C++ -*-
+
+filter2
+{
+    type        square1;
+
+    t0          26568000.0;  // 307.5 days
+    period      31536000.0;  // 365 days
+
+    mark        206;   // mode1 (days)
+    space       159;   // mode2 (days)
+
+    scale       1;
+    level       0;
+}

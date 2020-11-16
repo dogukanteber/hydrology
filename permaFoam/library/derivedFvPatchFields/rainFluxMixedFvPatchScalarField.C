@@ -53,26 +53,6 @@ Foam::rainFluxMixedFvPatchScalarField::unitNames_
 
 // * * * * * * * * * * * * * * * Local Functions * * * * * * * * * * * * * * //
 
-#if 0
-
-// The relative hydraulic conductivity, when psi_F < 0
-
-thtil_cl =
-(
-    pow((1+pow(mag(alpha*psi_F),n)),-(1-(1/n)))
-);
-
-Krel_cl =
-(
-    K
-  * pow(thtil_cl,0.5)
-  * pow((1-pow((1-pow(thtil_cl,(n/(n-1)))),(1-(1/n)))),2)
-);
-
-
-// When psi_F >= 0, simply use psi = 0 and ignore K, Krel_cl etc
-#endif
-
 namespace Foam
 {
     // Factor for the relative hydraulic conductivity
@@ -164,13 +144,15 @@ rainFluxMixedFvPatchScalarField
 :
     mixedFvPatchScalarField(p, iF),
     units_(precipitationUnits::METERS_PER_SECOND),
+    thawingActive_(Switch::OFF),
     scaleDivisor_(1),
     direction_(0,0,-1),
     facePressureName_(),
     hydConductivityName_(),
     vanGenuchtenName_(),
     invCapillaryLengthName_(),
-    rate_(nullptr)
+    rate_(nullptr),
+    thawing_(nullptr)
 {
     this->refValue() = Zero;
     this->refGrad() = Zero;
@@ -189,13 +171,36 @@ rainFluxMixedFvPatchScalarField
 :
     mixedFvPatchScalarField(pfld, p, iF, mapper),
     units_(pfld.units_),
+    thawingActive_(pfld.thawingActive_),
     scaleDivisor_(pfld.scaleDivisor_),
     direction_(pfld.direction_),
     facePressureName_(pfld.facePressureName_),
     hydConductivityName_(pfld.hydConductivityName_),
     vanGenuchtenName_(pfld.vanGenuchtenName_),
     invCapillaryLengthName_(pfld.invCapillaryLengthName_),
-    rate_(nullptr)
+    rate_(nullptr),
+    thawing_(nullptr)
+{}
+
+
+Foam::rainFluxMixedFvPatchScalarField::
+rainFluxMixedFvPatchScalarField
+(
+    const rainFluxMixedFvPatchScalarField& pfld,
+    const DimensionedField<scalar, volMesh>& iF
+)
+:
+    mixedFvPatchScalarField(pfld, iF),
+    units_(pfld.units_),
+    thawingActive_(pfld.thawingActive_),
+    scaleDivisor_(pfld.scaleDivisor_),
+    direction_(pfld.direction_),
+    facePressureName_(pfld.facePressureName_),
+    hydConductivityName_(pfld.hydConductivityName_),
+    vanGenuchtenName_(pfld.vanGenuchtenName_),
+    invCapillaryLengthName_(pfld.invCapillaryLengthName_),
+    rate_(pfld.rate_.clone()),
+    thawing_(pfld.thawing_.clone())
 {}
 
 
@@ -218,6 +223,11 @@ rainFluxMixedFvPatchScalarField
             precipitationUnits::METERS_PER_SECOND
         )
     ),
+    thawingActive_
+    (
+        // Use lookupOrDefault instead of getOrDefault for older OpenFOAM
+        dict.lookupOrDefault("thawingActive", Switch(Switch::OFF))
+    ),
     scaleDivisor_(getScaleDivisor(units_)),
     direction_
     (
@@ -239,8 +249,14 @@ rainFluxMixedFvPatchScalarField
     (
         dict.lookupOrDefault<word>("invCapillaryLength", "alpha")
     ),
-    rate_(Function1<scalar>::New("rate", dict))
+    rate_(Function1<scalar>::New("rate", dict)),
+    thawing_(nullptr)
 {
+    if (thawingActive_ || dict.found("thawing", keyType::LITERAL))
+    {
+        thawing_ = PatchFunction1<scalar>::New(p.patch(), "thawing", dict);
+    }
+
     fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
 
     if (dict.found("refValue"))
@@ -258,25 +274,6 @@ rainFluxMixedFvPatchScalarField
         valueFraction() = scalar(1);
     }
 }
-
-
-Foam::rainFluxMixedFvPatchScalarField::
-rainFluxMixedFvPatchScalarField
-(
-    const rainFluxMixedFvPatchScalarField& pfld,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(pfld, iF),
-    units_(pfld.units_),
-    scaleDivisor_(pfld.scaleDivisor_),
-    direction_(pfld.direction_),
-    facePressureName_(pfld.facePressureName_),
-    hydConductivityName_(pfld.hydConductivityName_),
-    vanGenuchtenName_(pfld.vanGenuchtenName_),
-    invCapillaryLengthName_(pfld.invCapillaryLengthName_),
-    rate_(pfld.rate_.clone())
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -309,6 +306,13 @@ updateCoeffs()
     const scalar currRate =
         rate_->value(this->db().time().timeOutputValue()) / scaleDivisor_;
 
+    tmp<scalarField> tthawfield;
+
+    if (thawingActive_)
+    {
+        tthawfield = thawing_->value(this->db().time().timeOutputValue());
+    }
+
 
     // Re-zero. Assume fixedValue.
     refValue() = Zero;
@@ -326,6 +330,22 @@ updateCoeffs()
 
     forAll(this->patch(), patchFacei)
     {
+        scalar thawFactor = 1;
+
+        if (thawingActive_)
+        {
+            thawFactor = tthawfield()[patchFacei];
+
+            if (thawFactor < SMALL)
+            {
+                continue;
+            }
+            else
+            {
+                thawFactor = min(thawFactor, scalar(1));
+            }
+        }
+
         if (psi_F[patchFacei] <= 0)
         {
             const scalar Krel =
@@ -341,7 +361,7 @@ updateCoeffs()
 
             const scalar gradValue =
             (
-                (negativeZ - currRate/Krel * direction_)
+                thawFactor * (negativeZ - currRate/Krel * direction_)
               & (Sf[patchFacei] / magSf[patchFacei])
             );
 
@@ -361,9 +381,14 @@ void Foam::rainFluxMixedFvPatchScalarField::write
 {
     mixedFvPatchScalarField::write(os);
     os.writeEntry("units", unitNames_[units_]);
+    os.writeEntry("thawingActive", thawingActive_);
     if (rate_)
     {
         rate_->writeData(os);
+    }
+    if (thawing_)
+    {
+        thawing_->writeData(os);
     }
     os.writeEntry("direction", direction_);
     os.writeEntry("facePressure", facePressureName_);

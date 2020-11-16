@@ -35,6 +35,8 @@ Usage
         type         | "rainFallFlux"               | yes |
         rate         | Rainfall rate                | yes |
         units        | Rainfall units               | no  | m_s
+        thawingActive | Use local thawing function  | no  | false
+        thawing      | Thawing function [0-1]       | no  |
         direction    | Direction of rain            | no  | (0 0 -1)
         facePressure | Name of face pressure field  | no  | psi_F
         hydConductivity | Name of hydraulic conductivity | no  | K
@@ -66,6 +68,7 @@ SourceFiles
 #include "mixedFvPatchFields.H"
 #include "Enum.H"
 #include "Function1.H"
+#include "PatchFunction1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -110,6 +113,9 @@ private:
         //- Precipitation units
         const precipitationUnits units_;
 
+        //- Activate thawing function
+        Switch thawingActive_;
+
         //- Scale divisor for precipitation units
         const scalar scaleDivisor_;
 
@@ -130,6 +136,9 @@ private:
 
         //- The rainfall rate
         autoPtr<Function1<scalar>> rate_;
+
+        //- The local thawing condition (0-1)
+        autoPtr<PatchFunction1<scalar>> thawing_;
 
 
 public:
