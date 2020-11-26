@@ -4,6 +4,9 @@ derivedFvPatchFields/noRainFluxGradientFvPatchScalarField.C
 /* modification of standards */
 functions/makeFunction1s.C
 
+/* Additions of Function1 to PatchFunction1 */
+functions/makePatchFunction1s.C
+
 /* special purpose */
 functions/thawing/thawingFieldFunction.C
 functions/seasonal/makeSeasonalVariation.C
