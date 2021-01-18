@@ -98,7 +98,7 @@ Foam::Function1Types::Sine1<Type>::Sine1(const Sine1<Type>& rhs)
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1Types::Sine1<Type>::printCoeffs(Ostream& os) const
+void Foam::Function1Types::Sine1<Type>::writeEntries(Ostream& os) const
 {
     os.writeEntryIfDifferent<scalar>("t0", 0, t0_);
     if (clip_.valid())
@@ -130,7 +130,7 @@ void Foam::Function1Types::Sine1<Type>::writeData(Ostream& os) const
     os.endEntry();
 
     os.beginBlock(word(this->name() + "Coeffs"));
-    printCoeffs(os);
+    writeEntries(os);
     os.endBlock();
 }
 

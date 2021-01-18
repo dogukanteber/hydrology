@@ -178,8 +178,8 @@ rainFluxMixedFvPatchScalarField
     hydConductivityName_(pfld.hydConductivityName_),
     vanGenuchtenName_(pfld.vanGenuchtenName_),
     invCapillaryLengthName_(pfld.invCapillaryLengthName_),
-    rate_(nullptr),
-    thawing_(nullptr)
+    rate_(pfld.rate_.clone()),
+    thawing_(pfld.thawing_.clone())
 {}
 
 

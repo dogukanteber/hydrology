@@ -79,6 +79,7 @@ Foam::PatchFunction1Types::thawingFieldFunction::thawingFieldFunction
 )
 :
     PatchFunction1<scalar>(pp, entryName, dict, faceValues),
+    dict_(dict),
     faceName_(dict.get<word>("Tface")),
     meltName_(),
     meltValue_(0),
@@ -102,11 +103,7 @@ Foam::PatchFunction1Types::thawingFieldFunction::thawingFieldFunction
     const thawingFieldFunction& rhs
 )
 :
-    PatchFunction1<scalar>(rhs),
-    faceName_(rhs.faceName_),
-    meltName_(rhs.meltName_),
-    meltValue_(rhs.meltValue_),
-    shiftValue_(rhs.shiftValue_)
+    thawingFieldFunction(rhs, rhs.patch_)
 {}
 
 
@@ -116,7 +113,8 @@ Foam::PatchFunction1Types::thawingFieldFunction::thawingFieldFunction
     const polyPatch& pp
 )
 :
-    PatchFunction1<scalar>(rhs),
+    PatchFunction1<scalar>(rhs, pp),
+    dict_(rhs.dict_),
     faceName_(rhs.faceName_),
     meltName_(rhs.meltName_),
     meltValue_(rhs.meltValue_),
@@ -207,20 +205,9 @@ void Foam::PatchFunction1Types::thawingFieldFunction::writeData
     Ostream& os
 ) const
 {
-    os.writeEntry("Tface", faceName_);
-
-    if (meltName_.empty())
-    {
-        // Value
-        os.writeEntry("Tmelt", meltValue_);
-    }
-    else
-    {
-        // Field name
-        os.writeEntry("Tmelt", meltName_);
-    }
-
-    os.writeEntryIfDifferent<scalar>("Tshift", shiftValue_, 0);
+    // PatchFunction1-from-subdict so output dictionary contains
+    // only the relevant entries.
+    dict_.writeEntry(this->name(), os);
 }
 
 

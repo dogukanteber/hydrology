@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2020 OpenCFD Ltd.
+    Copyright (C) 2020-2021 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -101,15 +101,12 @@ Foam::Function1Types::SeasonalVariation<Type>::SeasonalVariation
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1Types::SeasonalVariation<Type>::writeData
+void Foam::Function1Types::SeasonalVariation<Type>::writeEntries
 (
     Ostream& os
 ) const
 {
-    if (dualMode_)
-    {
-        os.writeEntry("dualMode", dualMode_);
-    }
+    os.writeEntry("dualMode", dualMode_);
 
     if (selector_)
     {
@@ -122,6 +119,21 @@ void Foam::Function1Types::SeasonalVariation<Type>::writeData
     {
         mode2_->writeData(os);
     }
+}
+
+
+template<class Type>
+void Foam::Function1Types::SeasonalVariation<Type>::writeData
+(
+    Ostream& os
+) const
+{
+    Function1<Type>::writeData(os);
+    os.endEntry();
+
+    os.beginBlock(word(this->name() + "Coeffs"));
+    writeEntries(os);
+    os.endBlock();
 }
 
 

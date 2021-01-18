@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2016-2017 OpenFOAM Foundation
-    Copyright (C) 2020 OpenCFD Ltd.
+    Copyright (C) 2020-2021 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -168,8 +168,8 @@ public:
         //- Write in dictionary format
         virtual void writeData(Ostream& os) const;
 
-        //- Write coefficients in dictionary format
-        void printCoeffs(Ostream& os) const;
+        //- Write coefficient entries in dictionary format
+        void writeEntries(Ostream& os) const;
 };
 
 

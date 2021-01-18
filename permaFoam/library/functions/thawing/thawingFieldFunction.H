@@ -72,6 +72,9 @@ class thawingFieldFunction
 {
     // Private Data
 
+        //- Dictionary contents for the function
+        const dictionary dict_;
+
         //- Tface : temperature face field name
         word faceName_;
 

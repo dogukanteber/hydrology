@@ -55,11 +55,11 @@ Foam::Function1Types::Square1<Type>::Square1(const Square1<Type>& rhs)
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1Types::Square1<Type>::printCoeffs(Ostream& os) const
+void Foam::Function1Types::Square1<Type>::writeEntries(Ostream& os) const
 {
     os.writeEntryIfDifferent<scalar>("mark", 1, mark_);
     os.writeEntryIfDifferent<scalar>("space", 1, space_);
-    Sine1<Type>::printCoeffs(os);
+    Sine1<Type>::writeEntries(os);
 }
 
 
@@ -70,7 +70,7 @@ void Foam::Function1Types::Square1<Type>::writeData(Ostream& os) const
     os.endEntry();
 
     os.beginBlock(word(this->name() + "Coeffs"));
-    printCoeffs(os);
+    writeEntries(os);
     os.endBlock();
 }
 
