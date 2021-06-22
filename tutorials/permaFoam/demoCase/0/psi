@@ -1,0 +1,66 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      psi;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#includeIfPresent "include/climaticConditions"
+
+dimensions      [0 1 0 0 0 0 0];
+
+internalField   uniform -0.8;
+
+boundaryField
+{
+
+    top
+    {
+        type            rainFallFlux;
+        value           uniform 0;
+        rate            $rainRate;
+        units           mm_month;
+
+        facePressure    psi_F;  // default
+        hydConductivity K;  // default
+        vanGenuchten    n;  // default
+        invCapillaryLength alpha;  // default
+    }
+
+    bottom
+    {
+        type            noRainFlux;
+        value           uniform 0;
+    }
+
+    downSlope
+    {
+        type            noRainFlux;
+        value           uniform 0;
+    }
+
+    upSlope
+    {
+        type            noRainFlux;
+        value           uniform 0;
+    }
+
+    sides
+    {
+        type    empty;
+    }
+}
+
+
+
+// ************************************************************************* //

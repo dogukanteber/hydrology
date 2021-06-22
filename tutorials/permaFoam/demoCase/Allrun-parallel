@@ -1,0 +1,17 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+application=permaFoam
+
+runApplication blockMesh
+
+runApplication decomposePar
+
+runParallel $application
+
+runParallel -s postProcess \
+    $application -postProcess -time 1000000:
+
+#------------------------------------------------------------------------------
