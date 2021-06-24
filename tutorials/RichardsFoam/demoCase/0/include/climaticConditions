@@ -1,0 +1,12 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+rainRate                                48; // here in [mm/month]
+PotentialEvapoTranspirationRate         0.00000002; // [1/s]
+
+// ************************************************************************* //
