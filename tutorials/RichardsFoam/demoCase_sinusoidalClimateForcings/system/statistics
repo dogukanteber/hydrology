@@ -1,0 +1,30 @@
+// -*- C -*-
+
+functions
+{
+    internal
+    {
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    writeTime;
+        writeFields     no;
+        operation       average;
+
+        fields ( theta psi );
+    }
+
+    top
+    {
+        type            surfaceFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    writeTime;
+        writeFields     no;
+        regionType      patch;
+        name            top;
+        operation       average;
+
+        fields ( U );
+    }
+}
+
+// ************************************************************************* //
