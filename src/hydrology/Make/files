@@ -11,4 +11,4 @@ functions/makePatchFunction1s.C
 functions/thawing/thawingFieldFunction.C
 functions/seasonal/makeSeasonalVariation.C
 
-LIB = $(FOAM_MODULE_LIBBIN)/libpermaFoam
+LIB = $(FOAM_MODULE_LIBBIN)/libhydrology

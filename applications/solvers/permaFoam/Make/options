@@ -14,5 +14,4 @@ EXE_INC = \
 
 EXE_LIBS = \
     -lfiniteVolume \
-    -lmeshTools \
-    -L$(FOAM_MODULE_LIBBIN) -lpermaFoam
+    -lmeshTools
