@@ -94,10 +94,10 @@ int main(int argc, char *argv[])
 
     volScalarField psim1 = psi;
 
-    // Equation (A.5), in [1] Appendix S1
+    // Equation (2), in RichardsFoam3_systemOfEquations.pdf
     volScalarField thtil
     (
-                           
+
                            pos0(psi)
                            +
                            neg(psi)*
@@ -107,11 +107,11 @@ int main(int argc, char *argv[])
                                               n
                                           )
                                    ),
-                                  - (1 - (1/n)))                       
+                                  - (1 - (1/n)))
     );
 
 
-    // Equation (A.5), in [1] Appendix S1
+    // Equation (2), in RichardsFoam3_systemOfEquations.pdf
     volScalarField thtil_tmp
     (
                                pos0(psi_tmp)+neg(psi_tmp)*
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
     );
 
 
-    // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
+    // Equation (4), in RichardsFoam3_systemOfEquations.pdf
     volScalarField Krel
     (
                           (
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
                           )
     );
 
-    // Equation (A.6), in [1] Appendix S1
+    // Equation (3), in RichardsFoam3_systemOfEquations.pdf
     volScalarField Crel
     (
                           S +     neg(psi)*
@@ -183,15 +183,13 @@ int main(int argc, char *argv[])
 
     surfaceScalarField fluvuz(norFace.component(vector::Z));
 
-    // Equation (A.2), in [1] Appendix S1
     U = -fluK*(flupsi + fluvuz);
 
-    // Equation (A.2), in [1] Appendix S1
     Uvol =
       (
           -Krel * (fvc::grad(psi,"grad(psi)") + vuz)
       );
-    
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 //                    Beginning of the resolution
@@ -224,7 +222,7 @@ int main(int argc, char *argv[])
 // Computation of the Actual Evapotranspiration sink term
 // for the current time step
 
-            // Equations (A.11) and (A.12), in [1] Appendix S1
+            // Equation (5), in RichardsFoam3_systemOfEquations.pdf
             {
 
             volScalarField quotient
@@ -251,7 +249,7 @@ int main(int argc, char *argv[])
 
 // Resolution of the linear system.
 
-                // Equation (A.1), in [1] Appendix S1
+                // Equation (1), in RichardsFoam3_systemOfEquations.pdf
                 {
                     fvScalarMatrix psiEqn
                     (
@@ -265,7 +263,7 @@ int main(int argc, char *argv[])
 
 // update of the varying transport properties.
 
-                // Equation (A.5), in [1] Appendix S1
+                // Equation (2), in RichardsFoam3_systemOfEquations.pdf
                 thtil =     pos0(psi) + neg(psi)*
                             pow(
                                    (1 + pow(
@@ -276,7 +274,7 @@ int main(int argc, char *argv[])
                          );
 
 
-                // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
+                // Equation (4), in RichardsFoam3_systemOfEquations.pdf
                 Krel = (
                                pos0(psi)*K
                                +
@@ -292,7 +290,7 @@ int main(int argc, char *argv[])
                                   )
                        );
 
-                // Equation (A.6), in [1] Appendix S1
+                // Equation (3), in RichardsFoam3_systemOfEquations.pdf
                 Crel = S +         neg(psi)*
                                    (
                                        (thetas - thetar)*
@@ -332,10 +330,8 @@ int main(int argc, char *argv[])
 
             fluK = fvc::interpolate(Krel,"interpolate(Krel)");
 
-            // Equation (A.2), in [1] Appendix S1
             U = - fluK*(flupsi + fluvuz);
 
-            // Equation (A.1), in [1] Appendix S1
             Uvol =
             (
               - Krel * (fvc::grad(psi,"grad(psi)") + vuz)
@@ -365,7 +361,7 @@ int main(int argc, char *argv[])
                     " - computation restarted with a smaller time step. "
                     << "Error psi = " << convergeFlow << nl;
             }
-            
+
             if (needTimeAdjustment)
             {
                 runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
@@ -387,7 +383,7 @@ int main(int argc, char *argv[])
                 Info<< "Failure in Richards convergence / Error psi = "
                     << convergeFlow << nl;
             }
-           
+
             if (needTimeAdjustment)
             {
                 runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
@@ -399,7 +395,8 @@ int main(int argc, char *argv[])
 // Storage of the field of results for the Picard loops of the next time step
         psi_tmp = psi;
         psi_F = fvc::interpolate(psi,"interpolate(psi)");
-        // Equation (A.5), in [1] Appendix S1
+        H = psi + z;
+        // Equation (2), in RichardsFoam3_systemOfEquations.pdf
         thtil_tmp =     pos0(psi)
                         +
                         neg(psi)*

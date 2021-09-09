@@ -19,6 +19,21 @@
         mesh
     );
 
+//- Piezometric head [m] at cell centers
+    Info<< "Reading field H\n" << endl;
+    volScalarField H
+    (
+        IOobject
+        (
+            "H",
+            runTime.timeName(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+
 
 /*---------------------------------------------------------------------------*\
                  Declarations of the fields of derived variables

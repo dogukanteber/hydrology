@@ -29,7 +29,7 @@ solvers
 
 Picard
 {
-    nIterPicardFlow                  20; //must be strictly higher than 5 ; 10 should be the best value//
+    nIterPicardFlow                  20; // must be strictly higher than 5 //
     precPicardFlow                   1e-3;
     stabilisationThresholdFlow       100;
 
