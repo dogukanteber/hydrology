@@ -646,6 +646,7 @@ int main(int argc, char *argv[])
 // Storage of the field of results for the Picard loops of the next time step
         psi_tmp = psi;
         psi_F = fvc::interpolate(psi,"interpolate(psi)");
+        H = psi + z;
         // Equation (A.5), in [1] Appendix S1
         thtil_tmp =     pos0(psi)
                         +

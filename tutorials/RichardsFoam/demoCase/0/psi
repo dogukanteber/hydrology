@@ -45,8 +45,8 @@ boundaryField
 
     downSlope
     {
-        type            noRainFlux;
-        value           uniform 0;
+         type            exprFixedValue;
+        valueExpr       "$hydraulicHead-pos().z()";
     }
 
     upSlope

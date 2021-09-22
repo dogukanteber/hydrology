@@ -1,136 +1,195 @@
 Tutorials
 
-permaFoam/demoCase/           - This directory contains a demonstration case for the permaFoam solver. It simulates 1 month of thawing of a 1 m thick,
-                                10 m long initially frozen loam slope (incline: 10%). The details of this case may be found in 'permaFoam_demoCase.pdf'
-                                file.
-   0/                         - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the
-                                initial time of the case.
-      AET                     - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
-      alpha                   - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
-      Cthsoil                 - This file contains the field of the soil heat capacity - input data, not recomputed [kg.m-1.s-2.K-1].
-      err                     - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
-      errT                    - This file contains the picard loop residual field for thermal equation - computed along resolution [K].
-      gradT                   - This file contains the field of temperature gradient projected on cell faces - computed along resolution [K.m-1].
-      K                       - This file contains the field of saturated hydraulic conductivity - input data, not recomputed [m.s-1].
-      KrThMin                 - This file contains the field of minimal frozen relative hydraulic conductivity - input data, not recomputed [-].
-      Kthsoil                 - This file contains the field of soil thermal conductivity - input data, not recomputed [kg.m.s-3.K-1]
-      n                       - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
-      omega                   - This file contains the power law factor for the freezing impedance factor for frozen relative hydraulic
-                                conductivity [-].
-      PET                     - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
-      psi                     - This file contains the water pressure field at cell centers - this is the primary variable of resolution of
-                                Richards equation [m].
-      psi_F                   - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
-      S                       - This file contains the field of storage coefficient - input data, not recomputed [m-1].
-      T                       - This file contains the temperature field at cell centers - this is the primary variable of resolution of thermal
-                                equation [K].
-      T_F                     - This file contains the temperature field at the centers of cell faces - computed along resolution [K].
-      theta                   - This file contains the water volume fraction field - computed along resolution [-].
-      thetag                  - This file contains the ice volume fraction field - computed along resolution [-].
-      thetal                  - This file contains the liquid water volume fraction field - computed along resolution [-].
-      thetar                  - This file contains the field of residual water volume fraction - input data, not recomputed [-].
-      thetas                  - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
-      thetaWP                 - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure - or maximum
-                                succion - that allows plant roots to uptake water for feeding evapotranspiration) - input data, not recomputed [-].
-      Tmelt                   - This file contains the field of temperature of starting of freezing of the water in the porous medium - input
-                                data, not recomputed [K].
-      Tvisu                   - This file contains the temperature field in degree celsius at cell centers - computed along resolution [°C].
-      U                       - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
-      Uvol                    - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
-      usf                     - This file contains a dimensionned unit scalar field [m].
-      vuz                     - This file contains a dimensionless vertical upward unit vector field [-].
-      W                       - This file contains the field of scaling parameter of the freezing curve of the soil - input data, not
-                                recomputed [K].
-      include/                - This directory contains the value of the climatic forcings imposed at the patch top (field T and psi) and in
-                                the PET field.
-         climaticConditions   - This file contains the value of the climatic forcings imposed at the patch top (field psi and T) and in the PET field.
-      constant/               - This directory contains information about the domain of resolution.
-         transportProperties  - This file contains several non spatialised input data (dimensionning factor, air, liquid water and ice thermal
-                                properties, forced bounds for the temperature field).
-         polyMesh/            - This directory contains the mesh, once it has been build by the blockMesh utility.
-      system/                 - This directory contains information about the resolution.
-         blockMeshDict        - This file contains the input data needed by blockMesh to build the mesh.
-         controlDict          - This file contains the controlling parameters for the transient resolution, output data, ...
-         fvSchemes            - This file contains the information for the building of the linear systems involved in the resolution.
-         fvSolution           - This file contains the information for the solving of the linear systems involved in the resolution.
-         mapFieldsDict        - This file contains the input data needed by the mapFields utility in order to perform field mapping.
-         statistics           - This file contains the input data needed by the postprocess utility in order to perform the post-processing of
-                                the results of the case.
+permaFoam/demoCase/ - This directory contains a demonstration case for the permaFoam solver. It simulates 1 month of thawing of a 1 m thick, 10 m long initially frozen loam slope (incline: 10%). The details of this case may be found in 'permaFoam_demoCase.pdf' file.
+   0/ - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the initial time of the case.
+      AET - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
+      alpha - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
+      Cthsoil - This file contains the field of the soil heat capacity - input data, not recomputed [kg.m-1.s-2.K-1].
+      err - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
+      errT - This file contains the picard loop residual field for thermal equation - computed along resolution [K].
+      gradT - This file contains the field of temperature gradient projected on cell faces - computed along resolution [K.m-1].
+      K - This file contains the field of saturated hydraulic conductivity - input data, not recomputed [m.s-1].
+      KrThMin - This file contains the field of minimal frozen relative hydraulic conductivity - input data, not recomputed [-].
+      Kthsoil - This file contains the field of soil thermal conductivity - input data, not recomputed [kg.m.s-3.K-1]
+      n - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
+      omega - This file contains the power law factor for the freezing impedance factor for frozen relative hydraulic conductivity [-].
+      PET - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
+      psi - This file contains the water pressure field at cell centers - this is the primary variable of resolution of Richards equation [m].
+      psi_F - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
+      S - This file contains the field of storage coefficient - input data, not recomputed [m-1].
+      T - This file contains the temperature field at cell centers - this is the primary variable of resolution of thermal equation [K].
+      T_F - This file contains the temperature field at the centers of cell faces - computed along resolution [K].
+      theta - This file contains the water volume fraction field - computed along resolution [-].
+      thetag - This file contains the ice volume fraction field - computed along resolution [-].
+      thetal - This file contains the liquid water volume fraction field - computed along resolution [-].
+      thetar - This file contains the field of residual water volume fraction - input data, not recomputed [-].
+      thetas - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
+      thetaWP - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure - or maximum succion - that allows plant roots to uptake water for feeding evapotranspiration) - input data, not recomputed [-].
+      Tmelt - This file contains the field of temperature of starting of freezing of the water in the porous medium - input data, not recomputed [K].
+      Tvisu - This file contains the temperature field in degree celsius at cell centers - computed along resolution [°C].
+      U - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
+      Uvol - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
+      usf - This file contains a dimensionned unit scalar field [m].
+      vuz - This file contains a dimensionless vertical upward unit vector field [-].
+      W - This file contains the field of scaling parameter of the freezing curve of the soil - input data, not recomputed [K].
+      include/ - This directory contains the value of the climatic forcings imposed at the patch top (field T and psi) and in the PET field.
+         climaticConditions - This file contains the value of the climatic forcings imposed at the patch top (field psi and T) and in the PET field.
+      constant/ - This directory contains information about the domain of resolution.
+         transportProperties - This file contains several non spatialised input data (dimensionning factor, air, liquid water and ice thermal properties, forced bounds for the temperature field).
+         polyMesh/ - This directory contains the mesh, once it has been build by the blockMesh utility.
+      system/ - This directory contains information about the resolution.
+         blockMeshDict - This file contains the input data needed by blockMesh to build the mesh.
+         controlDict - This file contains the controlling parameters for the transient resolution, output data, ...
+         fvSchemes - This file contains the information for the building of the linear systems involved in the resolution.
+         fvSolution - This file contains the information for the solving of the linear systems involved in the resolution.
+         mapFieldsDict - This file contains the input data needed by the mapFields utility in order to perform field mapping.
+         statistics - This file contains the input data needed by the postprocess utility in order to perform the post-processing of the results of the case.
       expected_postProcessing - This directory contains an example of postProcessing results as it should be obtained once the case has been ran.
-         internal/            - This directory contains the results of the postprocessing of the internal fields.
-            0/                - This directory contains the results of the postprocessing of the internal fields.
-               volFieldValue_0.dat   - This file contains the results of the postprocessing of the internal fields.
-               volFieldValue.dat     - This file contains the results of the postprocessing of the internal fields.
-         top/                 - This directory contains the results of the postprocessing of the fields at the patch top.
-            0/                - This directory contains the results of the postprocessing of the fields at the patch top.
-               surfaceFieldValue_0.dat   - This file contains the results of the postprocessing of the fields at the patch top.
-               surfaceFieldValue.dat     - This file contains the results of the postprocessing of the fields at the patch top.
+         internal/ - This directory contains the results of the postprocessing of the internal fields.
+            0/ - This directory contains the results of the postprocessing of the internal fields.
+               volFieldValue_0.dat - This file contains the results of the postprocessing of the internal fields.
+               volFieldValue.dat - This file contains the results of the postprocessing of the internal fields.
+         top/ - This directory contains the results of the postprocessing of the fields at the patch top.
+            0/ - This directory contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue_0.dat - This file contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue.dat - This file contains the results of the postprocessing of the fields at the patch top.
 
 
-permaFoam_demoCase_sinusoidalClimatForcings/   - This directory contains a demonstration case for the permaFoam solver, in which sinusoidal
-                                                 time variation of the parameters of the top boundary conditions (patch top) are used to model
-                                                 the seasonality of an hydrological cycle. It simulates the thaw and freeze of a 1 m thick,
-                                                 10 m long initially frozen loam slope (incline: 10%) along a full year, from January to
-                                                 December. The details of this case may be found in the
-                                                 'permaFoam_demoCase_sinusoidalClimatForcings.pdf' file.
+permaFoam/demoCase_sinusoidalClimatForcings/ - This directory contains a demonstration case for the permaFoam solver, in which sinusoidal time variation of the parameters of the top boundary conditions (patch top) are used to model the seasonality of an hydrological cycle. It simulates the thaw and freeze of a 1 m thick, 10 m long initially frozen loam slope (incline: 10%) along a full year, from January to December. The details of this case may be found in the 'permaFoam_demoCase_sinusoidalClimatForcings.pdf' file.
 
-      0/                      - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the
-                                initial time of the case.
-         AET                  - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
-         alpha                - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
-         Cthsoil              - This file contains the field of the soil heat capacity - input data, not recomputed [kg.m-1.s-2.K-1].
-         err                  - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
-         errT                 - This file contains the picard loop residual field for thermal equation - computed along resolution [K].
-         gradT                - This file contains the field of temperature gradient projected on cell faces - computed along resolution
-                                [K.m-1].
-         K                    - This file contains the field of saturated hydraulic conductivity - input data, not recomputed [m.s-1].
-         KrThMin              - This file contains the field of minimal frozen relative hydraulic conductivity - input data, not recomputed 					[-].
-         Kthsoil              - This file contains the field of soil thermal conductivity - input data, not recomputed [kg.m.s-3.K-1]
-         n                    - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
-         omega                - This file contains the power law factor for the freezing impedance factor for frozen relative hydraulic
-                                conductivity [-].
-         PET                  - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
-         psi                  - This file contains the water pressure field at cell centers - this is the primary variable of resolution of
-                                Richards equation [m].
-         psi_F                - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
-         S                    - This file contains the field of storage coefficient - input data, not recomputed [m-1].
-         T                    - This file contains the temperature field at cell centers - this is the primary variable of resolution of 					thermal equation [K].
-         T_F                  - This file contains the temperature field at the centers of cell faces - computed along resolution [m].
-         theta                - This file contains the water volume fraction field - computed along resolution [-].
-         thetag               - This file contains the ice volume fraction field - computed along resolution [-].
-         thetal               - This file contains the liquid water volume fraction field - computed along resolution [-].
-         thetar               - This file contains the field of residual water volume fraction - input data, not recomputed [-].
-         thetas               - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
-         thetaWP              - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure - or 					maximum succion - that allows plant roots to uptake water for feeding evapotranspiration) - input data, not 					recomputed [-].
-         Tmelt                - This file contains the field of temperature of starting of freezing of the water in the porous medium - input
-                                data, not recomputed [K].
-         Tvisu                - This file contains the temperature field in degree celsius at cell centers - computed along resolution [K].
-                                equation [K].
-         U                    - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
-         Uvol                 - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
-         usf                  - This file contains a dimensionned unit scalar field [m].
-         vuz                  - This file contains a dimensionless vertical upward unit vector field [-].
-         W                    - This file contains the field of scaling parameter of the freezing curve of the soil - input data, not
-                                recomputed [K].
-      constant/               - This directory contains information about the domain of resolution.
-         transportProperties  - This file contains several non spatialised input data (dimensionning factor, air, liquid water and ice thermal
-                                properties, forced bounds for the temperature field).
-         polyMesh/            - This directory contains the mesh, once it has been build by the blockMesh utility.
-      system/                 - This directory contains information about the resolution.
-         blockMeshDict        - This file contains the input data needed by blockMesh to build the mesh.
-         controlDict          - This file contains the controlling parameters for the transient resolution, output data, ...
-         fvSchemes            - This file contains the information for the building of the linear systems involved in the resolution.
-         fvSolution           - This file contains the information for the solving of the linear systems involved in the resolution.
-         mapFieldsDict        - This file contains the input data needed by the mapFields utility in order to perform field mapping.
-         statistics           - This file contains the input data needed by the postprocess utility in order to perform the post-processing of
-                                the results of the permaFoam_demoCase_sinusoidalClimatForcings case.
-      expected_postProcessing   - This directory contains an example of postProcessing results as it should be obtained once the
-                                  permaFoam_demoCase_sinusoidalClimatForcings has been ran.
-         internal/            - This directory contains the results of the postprocessing of the internal fields.
-            0/                - This directory contains the results of the postprocessing of the internal fields.
-               volFieldValue_0.dat   - This file contains the results of the postprocessing of the internal fields.
-               volFieldValue.dat     - This file contains the results of the postprocessing of the internal fields.
-         top/                 - This directory contains the results of the postprocessing of the fields at the patch top.
-            0/                - This directory contains the results of the postprocessing of the fields at the patch top.
-               surfaceFieldValue_0.dat   - This file contains the results of the postprocessing of the fields at the patch top.
-               surfaceFieldValue.dat     - This file contains the results of the postprocessing of the fields at the patch top.
+      0/ - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the initial time of the case.
+         AET - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
+         alpha - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
+         Cthsoil - This file contains the field of the soil heat capacity - input data, not recomputed [kg.m-1.s-2.K-1].
+         err - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
+         errT - This file contains the picard loop residual field for thermal equation - computed along resolution [K].
+         gradT - This file contains the field of temperature gradient projected on cell faces - computed along resolution [K.m-1].
+         K - This file contains the field of saturated hydraulic conductivity - input data, not recomputed [m.s-1].
+         KrThMin - This file contains the field of minimal frozen relative hydraulic conductivity - input data, not recomputed [-].
+         Kthsoil - This file contains the field of soil thermal conductivity - input data, not recomputed [kg.m.s-3.K-1]
+         n - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
+         omega - This file contains the power law factor for the freezing impedance factor for frozen relative hydraulic conductivity [-].
+         PET - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
+         psi - This file contains the water pressure field at cell centers - this is the primary variable of resolution of Richards equation [m].
+         psi_F - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
+         S - This file contains the field of storage coefficient - input data, not recomputed [m-1].
+         T - This file contains the temperature field at cell centers - this is the primary variable of resolution of thermal equation [K].
+         T_F - This file contains the temperature field at the centers of cell faces - computed along resolution [m].
+         theta - This file contains the water volume fraction field - computed along resolution [-].
+         thetag - This file contains the ice volume fraction field - computed along resolution [-].
+         thetal - This file contains the liquid water volume fraction field - computed along resolution [-].
+         thetar - This file contains the field of residual water volume fraction - input data, not recomputed [-].
+         thetas - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
+         thetaWP - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure - or maximum succion - that allows plant roots to uptake water for feeding evapotranspiration) - input data, not recomputed [-].
+         Tmelt - This file contains the field of temperature of starting of freezing of the water in the porous medium - input data, not recomputed [K].
+         Tvisu - This file contains the temperature field in degree celsius at cell centers - computed along resolution [K].
+         U - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
+         Uvol - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
+         usf - This file contains a dimensionned unit scalar field [m].
+         vuz - This file contains a dimensionless vertical upward unit vector field [-].
+         W - This file contains the field of scaling parameter of the freezing curve of the soil - input data, not recomputed [K].
+      constant/ - This directory contains information about the domain of resolution.
+         transportProperties  - This file contains several non spatialised input data (dimensionning factor, air, liquid water and ice thermal properties, forced bounds for the temperature field).
+         polyMesh/ - This directory contains the mesh, once it has been build by the blockMesh utility.
+      system/ - This directory contains information about the resolution.
+         blockMeshDict - This file contains the input data needed by blockMesh to build the mesh.
+         controlDict - This file contains the controlling parameters for the transient resolution, output data, ...
+         fvSchemes - This file contains the information for the building of the linear systems involved in the resolution.
+         fvSolution - This file contains the information for the solving of the linear systems involved in the resolution.
+         mapFieldsDict - This file contains the input data needed by the mapFields utility in order to perform field mapping.
+         statistics - This file contains the input data needed by the postprocess utility in order to perform the post-processing of the results of the permaFoam_demoCase_sinusoidalClimatForcings case.
+      expected_postProcessing - This directory contains an example of postProcessing results as it should be obtained once the permaFoam_demoCase_sinusoidalClimatForcings has been ran.
+         internal/ - This directory contains the results of the postprocessing of the internal fields.
+            0/ - This directory contains the results of the postprocessing of the internal fields.
+               volFieldValue_0.dat - This file contains the results of the postprocessing of the internal fields.
+               volFieldValue.dat - This file contains the results of the postprocessing of the internal fields.
+         top/ - This directory contains the results of the postprocessing of the fields at the patch top.
+            0/ - This directory contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue_0.dat - This file contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue.dat - This file contains the results of the postprocessing of the fields at the patch top.
+
+RichardsFoam3/demoCase/ - This directory contains a demonstration case for the RichardsFoam3 solver. It simulates rain infiltration with evapotranspiration in a 1 m thick, 10 m long initially frozen loam slope (incline: 10%). The details of this case may be found in 'RichardsFoam3_demoCase.pdf' file.
+   RichardsFoam3_demoCase.pdf - This file contains detailled explanations on this demonstration case (geometrical and physical features, scripts comments, obtained results).
+   commandsClean - This file lists the command lines that allow to clean all the case directories once the case has been ran.
+   commandsRun - This file lists the command lines that allow to run the RichardsFoam3_demoCase case.
+   0/ - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the initial time of the case.
+      AET - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
+      alpha - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
+      err - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
+      n - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
+      H - This file contains the piezometric head field at the centers of cell faces - computed along resolution [m].
+      PET - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
+      psi - This file contains the water pressure field at cell centers - this is the primary variable of resolution of Richards equation [m].
+      psi_F - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
+      S - This file contains the field of storage coefficient - input data, not recomputed [m-1].
+      theta - This file contains the water volume fraction field - computed along resolution [-].
+      thetar - This file contains the field of residual water volume fraction - input data, not recomputed [-].
+      thetas - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
+      thetaWP - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure - or maximum succion - that allows plant roots to uptake water for feeding evapotranspiration) - input data, not recomputed [-].
+      U - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
+      Uvol - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
+      usf - This file contains a dimensionned unit scalar field [m].
+      vuz - This file contains a dimensionless vertical upward unit vector field [-].
+      include/ - This directory contains the value of the climatic forcings imposed at the patch top (field psi) and in the PET field.
+         climaticConditions - This file contains the value of the climatic forcings imposed at the patch top (field psi) and in the PET field.
+   constant/ - This directory contains information about the domain of resolution.
+      transportProperties - This file contains several physical parameters.
+   system/ - This directory contains information about the resolution.
+      blockMeshDict - This file contains the input data needed by blockMesh to build the mesh.
+      controlDict - This file contains the controlling parameters for the transient resolution, output data, ...
+      fvSchemes - This file contains the information for the building of the linear systems involved in the resolution.
+      fvSolution - This file contains the information for the solving of the linear systems involved in the resolution.
+      mapFieldsDict - This file contains the input data needed by the mapFields utility in order to perform field mapping.
+      statistics - This file contains the input data needed by the postprocess utility in order to perform the post-processing of the results of the thawingBank case.
+   expected_postProcessing - This directory contains an example of postProcessing results as it should be obtained once the case has been ran.
+      internal/ - This directory contains the results of the postprocessing of the internal fields.
+         0/ - This directory contains the results of the postprocessing of the internal fields.
+            volFieldValue_0.dat - This file contains the results of the postprocessing of the internal fields.
+            volFieldValue.dat - This file contains the results of the postprocessing of the internal fields.
+      top/ - This directory contains the results of the postprocessing of the fields at the patch top.
+         0/ - This directory contains the results of the postprocessing of the fields at the patch top.
+            surfaceFieldValue_0.dat - This file contains the results of the postprocessing of the fields at the patch top.
+            surfaceFieldValue.dat - This file contains the results of the postprocessing of the fields at the patch top.
+
+
+RichardsFoam3/demoCase_sinusoidalClimatForcings/ - This directory contains a demonstration case for the RichardsFoam3 solver, in which sinusoidal time variation of the parameters of the top boundary conditions (patch top) are used to model the seasonality of an hydrological cycle. It simulates the imbibition and drainage of a 1 m thick, 10 m long initially frozen loam slope (incline: 10%) along a full year, from January to December. The details of this case may be found in the 'RichardsFoam3_demoCase_sinusoidalClimatForcings.pdf' file.
+   RichardsFoam3_demoCase_sinusoidalClimatForcings.pdf - This file contains detailled explanations on this demonstration case (geometrical and physical features, scripts comments, obtained results).
+   commandsClean - This file lists the command lines that allow to clean the RichardsFoam3_demoCase_sinusoidalClimatForcings directory once the RichardsFoam3_demoCase_sinusoidalClimatForcings case has been ran.
+   commandsRun - This file lists the command lines that allow to run the RichardsFoam3_demoCase_sinusoidalClimatForcings case.
+      0/ - This directory contains the data fields (primary and derived variables, medium properties, forcings) at the initial time of the case.
+         AET - This file contains the field of actual evapotranspiration rate - computed along resolution [s-1].
+         alpha - This file contains the field of the inverse of the capillary length - input data, not recomputed [m-1].
+         err - This file contains the picard loop residual field for Richards equation - computed along resolution [m].
+         n - This file contains the field of the van Genuchten exponent - input data, not recomputed [m-1].
+         H - This file contains the piezometric head field at the centers of cell faces - computed along resolution [m].
+         PET - This file contains the potential evapotranspiration rate field - input data, not recomputed [s-1].
+         psi - This file contains the water pressure field at cell centers - this is the primary variable of resolution of Richards equation [m].
+         psi_F - This file contains the water pressure field at the centers of cell faces - computed along resolution [m].
+         S - This file contains the field of storage coefficient - input data, not recomputed [m-1].
+         theta - This file contains the water volume fraction field - computed along resolution [-].
+         thetar - This file contains the field of residual water volume fraction - input data, not recomputed [-].
+         thetas - This file contains the field of maximum water volume fraction - input data, not recomputed [-].
+         thetaWP - This file contains the field of water volume fraction at the wilting point (i.e. at the minimum pressure, or maximum succion, that allows plant roots to uptake water for feeding evapotranspiration) - input data, not recomputed [-].
+         U - This file contains the water velocity field, normal to cell faces - computed along resolution [m/s].
+         Uvol - This file contains the water velocity vector field, at cell centers - computed along resolution [m/s].
+         usf - This file contains a dimensionned unit scalar field [m].
+         vuz - This file contains a dimensionless vertical upward unit vector field [-].
+      constant/ - This directory contains information about the domain of resolution.
+         transportProperties - This file contains several physical parameters.
+         polyMesh/ - This directory contains the mesh, once it has been build by the blockMesh utility.
+      system/ - This directory contains information about the resolution.
+         blockMeshDict - This file contains the input data needed by blockMesh to build the mesh.
+         controlDict - This file contains the controlling parameters for the transient resolution, output data, ...
+         fvSchemes - This file contains the information for the building of the linear systems involved in the resolution.
+         fvSolution - This file contains the information for the solving of the linear systems involved in the resolution.
+         mapFieldsDict - This file contains the input data needed by the mapFields utility in order to perform field mapping.
+         statistics - This file contains the input data needed by the postprocess utility in order to perform the post-processing of the results of the RichardsFoam3_demoCase_sinusoidalClimatForcings case.
+      expected_postProcessing - This directory contains an example of postProcessing results as it should be obtained once the RichardsFoam3_demoCase_sinusoidalClimatForcings has been ran.
+         internal/ - This directory contains the results of the postprocessing of the internal fields.
+            0/ - This directory contains the results of the postprocessing of the internal fields.
+               volFieldValue_0.dat - This file contains the results of the postprocessing of the internal fields.
+               volFieldValue.dat - This file contains the results of the postprocessing of the internal fields.
+         top/ - This directory contains the results of the postprocessing of the fields at the patch top.
+            0/ - This directory contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue_0.dat - This file contains the results of the postprocessing of the fields at the patch top.
+               surfaceFieldValue.dat - This file contains the results of the postprocessing of the fields at the patch top.

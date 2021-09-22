@@ -15,13 +15,13 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-libs    ( "libhydrology.so" );
+libs ( "libhydrology.so" );
 
-application     RichardsFoam3;
+application     porousUnsaturatedFoam;
 
 startFrom       startTime;
 
-startTime       0;
+startTime       0.;
 
 stopAt          endTime;
 
@@ -39,7 +39,7 @@ writeFormat     ascii;
 
 writePrecision  6;
 
-writeCompression off;
+writeCompression uncompressed;
 
 timeFormat      fixed;
 
@@ -49,7 +49,7 @@ runTimeModifiable yes;
 
 adjustTimeStep  yes;
 
-maxDeltaT       3600;
+maxDeltaT       600.;
 
 #includeIfPresent "statistics"
 

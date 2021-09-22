@@ -9,48 +9,47 @@ FoamFile
 {
     version     2.0;
     format      ascii;
-    class       dictionary;
-    location    "system";
-    object      fvSolution;
+    class       volScalarField;
+    location    "0";
+    object      H;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-solvers
+#includeIfPresent "include/climaticConditions"
+
+dimensions      [0 1 0 0 0 0 0];
+
+internalField   uniform 0.;
+
+boundaryField
 {
 
-    psi
+    top
     {
-        solver          PCG;
-        preconditioner  DIC;
-        tolerance       1e-10;
-        relTol          0;
+        type            zeroGradient;
     }
 
-    T
+    bottom
     {
-//        solver          PCG;
-//        preconditioner  DIC;
-        solver          PBiCG;
-        preconditioner  DILU;
-        tolerance       1e-10;
-        relTol          0;
+        type            zeroGradient;
     }
 
+    downSlope
+    {
+        type            zeroGradient;
+    }
+
+    upSlope
+    {
+        type            zeroGradient;
+    }
+
+    sides
+    {
+        type    empty;
+    }
 }
 
-Picard
-{
-    nIterPicardFlow                  20; // must be strictly higher than 5 //
-    precPicardFlow                   1e-3;
-    stabilisationThresholdFlow       100;
 
-    nIterPicardThermal               50;
-    precPicardThermal                1e-5;
-    stabilisationThresholdThermal    100;
-
-    nMaxCycle                        50;
-
-    tFact                            1.3;
-}
 
 // ************************************************************************* //

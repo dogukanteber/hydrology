@@ -56,6 +56,21 @@
         mesh
     );
 
+//- Piezometric head [m] at cell centers
+    Info<< "Reading field H\n" << endl;
+    volScalarField H
+    (
+        IOobject
+        (
+            "H",
+            runTime.timeName(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+
 //- Water velocity field normal to faces [m/s]
     Info<< "Reading field U\n" << endl;
     surfaceScalarField U
