@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     // Equation (2), in RichardsFoam3_systemOfEquations.pdf
     volScalarField thtil
     (
-
+                           
                            pos0(psi)
                            +
                            neg(psi)*
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
                                               n
                                           )
                                    ),
-                                  - (1 - (1/n)))
+                                  - (1 - (1/n)))                       
     );
 
 
@@ -148,7 +148,8 @@ int main(int argc, char *argv[])
     // Equation (3), in RichardsFoam3_systemOfEquations.pdf
     volScalarField Crel
     (
-                          S +     neg(psi)*
+                          S*(theta/thetas)
+                        + neg(psi)*
                                   (
                                       (thetas - thetar)*
                                       (thtil - thtil_tmp)*
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
       (
           -Krel * (fvc::grad(psi,"grad(psi)") + vuz)
       );
-
+    
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 //                    Beginning of the resolution
@@ -273,6 +274,8 @@ int main(int argc, char *argv[])
                                    -(1 - (1/n))
                          );
 
+               // updated of water content
+                theta = (thetas - thetar)*thtil + thetar;
 
                 // Equation (4), in RichardsFoam3_systemOfEquations.pdf
                 Krel = (
@@ -291,7 +294,8 @@ int main(int argc, char *argv[])
                        );
 
                 // Equation (3), in RichardsFoam3_systemOfEquations.pdf
-                Crel = S +         neg(psi)*
+                Crel =   S*(theta/thetas) 
+                       + neg(psi)*
                                    (
                                        (thetas - thetar)*
                                        (thtil - thtil_tmp)*
@@ -303,9 +307,6 @@ int main(int argc, char *argv[])
                 gradk = fvc::grad(Krel);
 
                 gradkz = gradk.component(vector::Z);
-
-// updated of water content
-                theta = (thetas - thetar)*thtil + thetar;
 
 // exit test of the Picard loop.
 // note the use of gSum instead of sum.
@@ -361,7 +362,7 @@ int main(int argc, char *argv[])
                     " - computation restarted with a smaller time step. "
                     << "Error psi = " << convergeFlow << nl;
             }
-
+            
             if (needTimeAdjustment)
             {
                 runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
@@ -383,7 +384,7 @@ int main(int argc, char *argv[])
                 Info<< "Failure in Richards convergence / Error psi = "
                     << convergeFlow << nl;
             }
-
+           
             if (needTimeAdjustment)
             {
                 runTime.setDeltaT((1/tFact)*runTime.deltaTValue());
