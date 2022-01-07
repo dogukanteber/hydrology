@@ -175,7 +175,8 @@ int main(int argc, char *argv[])
     // Equation (A.6), in [1] Appendix S1
     volScalarField Crel
     (
-                          S +     neg(psi)*
+                          S*(theta/thetas)
+                        + neg(psi)*
                                   (
                                       (thetas - thetar)*
                                       (thtil - thtil_tmp)*
@@ -344,6 +345,9 @@ int main(int argc, char *argv[])
                                    -(1 - (1/n))
                          );
 
+                // updated of water content
+                theta = (thetas - thetar)*thtil + thetar;
+
 
                 // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
                 Krel = max(KrThMin, pow(10., - omega*thetag))*
@@ -363,7 +367,8 @@ int main(int argc, char *argv[])
                        );
 
                 // Equation (A.6), in [1] Appendix S1
-                Crel = S +         neg(psi)*
+                Crel =   S*(theta/thetas)
+                       + neg(psi)*
                                    (
                                        (thetas - thetar)*
                                        (thtil - thtil_tmp)*
@@ -375,9 +380,6 @@ int main(int argc, char *argv[])
                 gradk = fvc::grad(Krel);
 
                 gradkz = gradk.component(vector::Z);
-
-// updated of water content
-                theta = (thetas - thetar)*thtil + thetar;
 
 // test of non-advection of ice
                 fTestConv = neg(theta - thetag);
