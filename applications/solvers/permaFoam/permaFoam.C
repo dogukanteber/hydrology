@@ -50,13 +50,16 @@ Contributors to the design and the writing of the code (chronological order):
     Mark Olesen
 
 References
-    [1] Orgogozo, L., Prokushkin, A.S., Pokrovsky, O.S., Grenier, C., Quintard,
+    [1] Orgogozo, L., Xavier, T., Oulbani, H., Grenier, C., (submitted to 
+      Computer Physics Communications). Permafrost modelling with OpenFOAM®: 
+      the permaFoam solver.
+    [2] Orgogozo, L., Prokushkin, A.S., Pokrovsky, O.S., Grenier, C., Quintard,
       M., Viers, J., Audry, S. (2019). Water and energy transfer modeling in a
       permafrost-dominated, forested catchment of Central Siberia: the key role
       of rooting depth. Permafrost and Periglacial Processes, 30, 75-89.
       https://doi.org/10.1002/ppp.1995
       https://hal.archives-ouvertes.fr/hal-02014619
-    [2] Grenier, C., Anbergen, H., Bense, V., Chanzy, Q., Coon, E., Collier,
+    [3] Grenier, C., Anbergen, H., Bense, V., Chanzy, Q., Coon, E., Collier,
       N., Costard, F., Ferry, M., Frampton, A., Frederick, J., Gonçalvès, J.,
       Holmén, J., Jost, A., Kokh, S., Kurylyk, B., McKenzie, J., Molson, J.,
       Mouche, E., Orgogozo, L., Pannetier, R., Rivière, A., Roux, N., Rühaak,
@@ -66,12 +69,12 @@ References
       Advances in Water Resources, 114, 196-218.
       https://doi.org/10.1016/j.advwatres.2018.02.001
       https://hal.archives-ouvertes.fr/hal-01396632
-    [3] Orgogozo L. 2015. RichardsFoam2: a new version of RichardsFoam devoted
+    [4] Orgogozo L. 2015. RichardsFoam2: a new version of RichardsFoam devoted
       to the modelling of the vadose zone. Computer Physics Communications,
       196, 619-620.
       https://doi.org/10.1016/j.cpc.2015.07.009
       https://hal.archives-ouvertes.fr/hal-01299854
-    [4] Orgogozo L., Renon N., Soulaine C., Hénon F., Tomer S.K., Labat D.,
+    [5] Orgogozo L., Renon N., Soulaine C., Hénon F., Tomer S.K., Labat D.,
       Pokrovsky O.S., Sekhar M., Ababou R., Quintard M. 2014a. An open source
       massively parallel solver for Richards equation: Mechanistic modelling of
       water fluxes at the watershed scale. Computer Physics Communications,
@@ -120,7 +123,7 @@ int main(int argc, char *argv[])
 
     volScalarField psim1 = psi;
 
-    // Equation (A.5), in [1] Appendix S1
+    // Equation (5) in reference [1]
     volScalarField thtil
     (
 
@@ -137,7 +140,7 @@ int main(int argc, char *argv[])
     );
 
 
-    // Equation (A.5), in [1] Appendix S1
+    // Equation (5) in reference [1]
     volScalarField thtil_tmp
     (
                                pos0(psi_tmp)+neg(psi_tmp)*
@@ -151,7 +154,7 @@ int main(int argc, char *argv[])
     );
 
 
-    // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
+    // Equations (4), (7) and (8) in reference [1]
     volScalarField Krel
     (
                           max(KrThMin,pow(10.,-omega*thetag))*
@@ -172,7 +175,7 @@ int main(int argc, char *argv[])
                           )
     );
 
-    // Equation (A.6), in [1] Appendix S1
+    // Equation (6) in reference [1]
     volScalarField Crel
     (
                           S*(theta/thetas)
@@ -211,12 +214,12 @@ int main(int argc, char *argv[])
 
     surfaceScalarField fluvuz(norFace.component(vector::Z));
 
-    // Equation (A.2), in [1] Appendix S1
+    // Equation (2) in reference [1]
     U = -fluK*(flupsi + fluvuz);
 
     surfaceScalarField phi(Cthw*U*mesh.magSf());
 
-    // Equation (A.2), in [1] Appendix S1
+    // Equation (2) in reference [1]
     Uvol =
       (
           -Krel * (fvc::grad(psi,"grad(psi)") + vuz)
@@ -224,7 +227,7 @@ int main(int argc, char *argv[])
 
 // Initialisation of the Heat transfer equation parameters
 
-    // Equations (A.3) and (A.9), in [1] Appendix S1
+    // Equations (3) and (9) in reference [1]
     volScalarField Cdg
     (
                        - L*
@@ -240,7 +243,7 @@ int main(int argc, char *argv[])
 
     volScalarField Tm1 = T;
 
-    // Equation (A.13), in [1] Appendix S1
+    // Equation (13) in reference [1]
     volScalarField Kth
     (
          Kthdim
@@ -250,7 +253,7 @@ int main(int argc, char *argv[])
        * pow(Kthair*(1./Kthdim),(thetas - theta))
     );
 
-    // Equation (A.14), in [1] Appendix S1
+    // Equation (14) in reference [1]
     volScalarField Cth
     (
           (1. - thetas)*Cthsoil
@@ -294,7 +297,7 @@ int main(int argc, char *argv[])
 // Computation of the Actual Evapotranspiration sink term
 // for the current time step
 
-            // Equations (A.11) and (A.12), in [1] Appendix S1
+            // Equations (11) and (12) in reference [1]
             {
 
             volScalarField quotient
@@ -321,7 +324,7 @@ int main(int argc, char *argv[])
 
 // Resolution of the linear system.
 
-                // Equation (A.1), in [1] Appendix S1
+                // Equation (1) in reference [1]
                 {
                     fvScalarMatrix psiEqn
                     (
@@ -335,7 +338,7 @@ int main(int argc, char *argv[])
 
 // update of the varying transport properties.
 
-                // Equation (A.5), in [1] Appendix S1
+                // Equation (5) in reference [1]
                 thtil =     pos0(psi) + neg(psi)*
                             pow(
                                    (1 + pow(
@@ -349,7 +352,7 @@ int main(int argc, char *argv[])
                 theta = (thetas - thetar)*thtil + thetar;
 
 
-                // Equations (A.4), (A.7) and (A.8), in [1] Appendix S1
+                // Equations (4), (7) and (8) in reference [1]
                 Krel = max(KrThMin, pow(10., - omega*thetag))*
                        (
                                pos0(psi)*K
@@ -366,7 +369,7 @@ int main(int argc, char *argv[])
                                   )
                        );
 
-                // Equation (A.6), in [1] Appendix S1
+                // Equation (6) in reference [1]
                 Crel =   S*(theta/thetas)
                        + neg(psi)*
                                    (
@@ -409,10 +412,10 @@ int main(int argc, char *argv[])
 
             fluK = fvc::interpolate(Krel,"interpolate(Krel)");
 
-            // Equation (A.2), in [1] Appendix S1
+            // Equation (3) in reference [1]
             U = - fluK*(flupsi + fluvuz);
 
-            // Equation (A.1), in [1] Appendix S1
+            // Equation (3) in reference [1]
             Uvol =
             (
               - Krel * (fvc::grad(psi,"grad(psi)") + vuz)
@@ -428,7 +431,7 @@ int main(int argc, char *argv[])
             phi = U*mesh.magSf()*Cthw;
 
 // Update of the fields of apparent thermal properties
-            // Equation (A.13), in [1] Appendix S1
+            // Equation (13) in reference [1]
             Kth =
             (
                 Kthdim
@@ -438,7 +441,7 @@ int main(int argc, char *argv[])
               * pow(Kthair*(1./Kthdim),(thetas - theta))
             );
 
-            // Equation (A.14), in [1] Appendix S1
+            // Equation (14) in reference [1]
             Cth =
             (
                 (1. - thetas)*Cthsoil
@@ -456,7 +459,7 @@ int main(int argc, char *argv[])
                 T = T_tmp;
 
 //  Resolution of thermal transfers
-                // Equation (A.3), in [1] Appendix S1
+                // Equation (2) in reference [1]
                 {
                     fvScalarMatrix thEqn
                     (
@@ -471,7 +474,7 @@ int main(int argc, char *argv[])
                 T = min(max(T, Tminc), Tmaxc);
 
 //  Computation of phase changes
-                // Equation (A.9), in [1] Appendix S1
+                // Equation (9) in reference [1]
                 thetag = max(
                                 0.,
                                 pos0(Tmelt - T)*
@@ -486,12 +489,12 @@ int main(int argc, char *argv[])
                                     )
                             );
 
-                // Equation (A.10), in [1] Appendix S1
+                // Equation (10) in reference [1]
                 thetal = theta - thetag;
 
 // Update of the fields of apparent thermal properties
 
-                // Equation (A.13), in [1] Appendix S1
+                // Equation (13) in reference [1]
                 Kth =
                 (
                     Kthdim
@@ -501,7 +504,7 @@ int main(int argc, char *argv[])
                   * pow(Kthair/Kthdim, (thetas - theta))
                 );
 
-                // Equation (A.14), in [1]  Appendix S1
+                // Equation (14) in reference [1]
                 Cth =
                 (
                     (1. - thetas)*Cthsoil
@@ -637,7 +640,7 @@ int main(int argc, char *argv[])
 
 
 //  Update of the latent heat part of the apparent thermal capacity
-        // Equations (A.3) and (A.9), in [1] Appendix S1
+        // Equations (2) and (9) in reference [1]
         Cdg = -
               L*
               pos0(Tmelt - T)*
@@ -649,7 +652,7 @@ int main(int argc, char *argv[])
         psi_tmp = psi;
         psi_F = fvc::interpolate(psi,"interpolate(psi)");
         H = psi + z;
-        // Equation (A.5), in [1] Appendix S1
+        // Equation (5) in reference [1]
         thtil_tmp =     pos0(psi)
                         +
                         neg(psi)*
