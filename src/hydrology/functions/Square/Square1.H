@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2016-2017 OpenFOAM Foundation
-    Copyright (C) 2020-2021 OpenCFD Ltd.
+    Copyright (C) 2020-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -103,8 +103,8 @@ Note
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef function1Types_Square1_H
-#define function1Types_Square1_H
+#ifndef hydrology_function1Types_Square1_H
+#define hydrology_function1Types_Square1_H
 
 #include "Sine1.H"
 
@@ -147,10 +147,23 @@ public:
     // Constructors
 
         //- Construct from entry name and dictionary
-        Square1(const word& entryName, const dictionary& dict);
+        Square1
+        (
+            const word& entryName,
+            const dictionary& dict
+            #if (OPENFOAM >= 2112)
+            , const objectRegistry* obrPtr = nullptr
+            #endif
+        );
 
         //- Copy construct
         explicit Square1(const Square1<Type>& rhs);
+
+        //- Construct and return a clone
+        virtual tmp<Function1<Type>> clone() const
+        {
+            return tmp<Function1<Type>>(new Square1<Type>(*this));
+        }
 
 
     //- Destructor

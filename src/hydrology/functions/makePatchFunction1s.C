@@ -28,13 +28,15 @@ License
 #include "PatchFunction1.H"
 #include "fieldTypes.H"
 #include "UniformValueField.H"
-
 #include "addToRunTimeSelectionTable.H"
 
+#if (OPENFOAM < 2112)
+// Migrated to UniformValueField.H for OpenFOAM-v2112
 #define addUniformValueFieldFunction1s(F1Type, Type)                           \
     PatchFunction1<Type>::adddictionaryConstructorToTable                      \
     <PatchFunction1Types::UniformValueField<Type>>                             \
         add##F1Type##UniformValueField##Type##ConstructorToTable_(#F1Type);
+#endif
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

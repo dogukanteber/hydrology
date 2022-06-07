@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2016-2017 OpenFOAM Foundation
-    Copyright (C) 2016-2020 OpenCFD Ltd.
+    Copyright (C) 2016-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -35,9 +35,16 @@ Foam::Function1Types::Square1<Type>::Square1
 (
     const word& entryName,
     const dictionary& dict
+    #if (OPENFOAM >= 2112)
+    , const objectRegistry* obrPtr
+    #endif
 )
 :
+    #if (OPENFOAM >= 2112)
+    Sine1<Type>(entryName, dict, obrPtr),
+    #else
     Sine1<Type>(entryName, dict),
+    #endif
     mark_(dict.getOrDefaultCompat<scalar>("mark", {{"markSpace", 2006}}, 1)),
     space_(dict.getOrDefault<scalar>("space", 1))
 {}

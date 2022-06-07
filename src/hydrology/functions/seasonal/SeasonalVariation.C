@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2020-2021 OpenCFD Ltd.
+    Copyright (C) 2020-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -68,9 +68,14 @@ Foam::Function1Types::SeasonalVariation<Type>::SeasonalVariation
 (
     const word& entryName,
     const dictionary& dict
+    #if (OPENFOAM >= 2112)
+    , const objectRegistry* obrPtr
+    #endif
 )
 :
-    #if (OPENFOAM >= 2012)
+    #if (OPENFOAM >= 2112)
+    Function1<Type>(entryName, dict, obrPtr),
+    #elif (OPENFOAM >= 2012)
     Function1<Type>(entryName, dict),
     #else
     Function1<Type>(entryName),

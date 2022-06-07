@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2016-2017 OpenFOAM Foundation
-    Copyright (C) 2016-2020 OpenCFD Ltd.
+    Copyright (C) 2016-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -66,9 +66,18 @@ Foam::Function1Types::Sine1<Type>::Sine1
 (
     const word& entryName,
     const dictionary& dict
+    #if (OPENFOAM >= 2112)
+    , const objectRegistry* obrPtr
+    #endif
 )
 :
+    #if (OPENFOAM >= 2112)
+    Function1<Type>(entryName, dict, obrPtr),
+    #elif (OPENFOAM >= 2012)
+    Function1<Type>(entryName, dict),
+    #else
     Function1<Type>(entryName),
+    #endif
     t0_(0),
     clip_(),
     amplitude_(nullptr),
@@ -96,6 +105,15 @@ Foam::Function1Types::Sine1<Type>::Sine1(const Sine1<Type>& rhs)
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+#if (OPENFOAM >= 2112)
+template<class Type>
+void Foam::Function1Types::Sine1<Type>::userTimeToTime(const Time& t)
+{
+    t0_ = t.userTimeToTime(t0_);
+}
+#endif
+
 
 template<class Type>
 void Foam::Function1Types::Sine1<Type>::writeEntries(Ostream& os) const

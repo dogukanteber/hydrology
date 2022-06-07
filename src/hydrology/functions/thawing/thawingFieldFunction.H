@@ -50,8 +50,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef function1s_thawingFieldFunction_H
-#define function1s_thawingFieldFunction_H
+#ifndef hydrology_function1s_thawingFieldFunction_H
+#define hydrology_function1s_thawingFieldFunction_H
 
 #include "PatchFunction1.H"
 
@@ -153,16 +153,10 @@ public:
         virtual tmp<Field<scalar>> value(const scalar x) const;
 
         //- Is value constant (i.e. independent of x)
-        virtual inline bool constant() const
-        {
-            return false;
-        }
+        virtual inline bool constant() const { return false; }
 
         //- Is value uniform (i.e. independent of coordinate)
-        virtual inline bool uniform() const
-        {
-            return false;
-        }
+        virtual inline bool uniform() const { return false; }
 
 
     // Mapping

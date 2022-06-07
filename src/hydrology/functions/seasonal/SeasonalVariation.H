@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2020-2021 OpenCFD Ltd.
+    Copyright (C) 2020-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -94,8 +94,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef function1Types_SeasonalVariation_H
-#define function1Types_SeasonalVariation_H
+#ifndef hydrology_function1Types_SeasonalVariation_H
+#define hydrology_function1Types_SeasonalVariation_H
 
 #include "Function1.H"
 #include "Switch.H"
@@ -151,10 +151,23 @@ public:
     // Constructors
 
         //- Construct from entry name and dictionary
-        SeasonalVariation(const word& entryName,const dictionary& dict);
+        SeasonalVariation
+        (
+            const word& entryName,
+            const dictionary& dict
+            #if (OPENFOAM >= 2112)
+            , const objectRegistry* obrPtr = nullptr
+            #endif
+        );
 
         //- Copy construct
         explicit SeasonalVariation(const SeasonalVariation<Type>& rhs);
+
+        //- Construct and return a clone
+        virtual tmp<Function1<Type>> clone() const
+        {
+            return tmp<Function1<Type>>(new SeasonalVariation<Type>(*this));
+        }
 
 
     //- Destructor

@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2020 OpenCFD Ltd.
+    Copyright (C) 2020-2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -95,8 +95,8 @@ Note
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef function1Types_Cosine1_H
-#define function1Types_Cosine1_H
+#ifndef hydrology_function1Types_Cosine1_H
+#define hydrology_function1Types_Cosine1_H
 
 #include "Sine1.H"
 
@@ -131,9 +131,20 @@ public:
     // Constructors
 
         //- Construct from entry name and dictionary
-        Cosine1(const word& entryName, const dictionary& dict)
+        Cosine1
+        (
+            const word& entryName,
+            const dictionary& dict
+            #if (OPENFOAM >= 2112)
+            , const objectRegistry* obrPtr = nullptr
+            #endif
+        )
         :
+            #if (OPENFOAM >= 2112)
+            Sine1<Type>(entryName, dict, obrPtr)
+            #else
             Sine1<Type>(entryName, dict)
+            #endif
         {}
 
         //- Copy construct
@@ -141,6 +152,12 @@ public:
         :
             Sine1<Type>(rhs)
         {}
+
+        //- Construct and return a clone
+        virtual tmp<Function1<Type>> clone() const
+        {
+            return tmp<Function1<Type>>(new Cosine1<Type>(*this));
+        }
 
 
     //- Destructor

@@ -100,8 +100,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef function1Types_Sine1_H
-#define function1Types_Sine1_H
+#ifndef hydrology_function1Types_Sine1_H
+#define hydrology_function1Types_Sine1_H
 
 #include "Function1.H"
 #include "MinMax.H"
@@ -191,10 +191,23 @@ public:
     // Constructors
 
         //- Construct from entry name and dictionary
-        Sine1(const word& entryName, const dictionary& dict);
+        Sine1
+        (
+            const word& entryName,
+            const dictionary& dict
+            #if (OPENFOAM >= 2112)
+            , const objectRegistry* obrPtr = nullptr
+            #endif
+        );
 
         //- Copy construct
         explicit Sine1(const Sine1<Type>& rhs);
+
+        //- Construct and return a clone
+        virtual tmp<Function1<Type>> clone() const
+        {
+            return tmp<Function1<Type>>(new Sine1<Type>(*this));
+        }
 
 
     //- Destructor
@@ -202,6 +215,11 @@ public:
 
 
     // Member Functions
+
+        //- Convert time
+        #if (OPENFOAM >= 2112)
+        virtual void userTimeToTime(const Time& t);
+        #endif
 
         //- Return value for time t
         virtual inline Type value(const scalar t) const
