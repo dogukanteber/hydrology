@@ -1,0 +1,3 @@
+parallelDecompose.C
+
+EXE = $(FOAM_MODULE_APPBIN)/parallelDecompose
