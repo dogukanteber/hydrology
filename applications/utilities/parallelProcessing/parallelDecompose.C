@@ -39,7 +39,29 @@ Description
 #include "fvCFD.H"
 
 int main(int argc, char* argv[]) {
+
+    argList::addNote
+    (
+        "Decompose a mesh and fields of a case in parallel execution"
+    );
+    argList::noParallel();
+    argList::addOption
+    (
+        "decomposeParDict",
+        "file",
+        "Use specified file for decomposePar dictionary"
+    );
     
+    #include "setRootCase.H"
+
+    #include "createTime.H"
+
+    // get custom decomposeParDict location
+    fileName decompDictFile(args.get<fileName>("decomposeParDict", ""));
+    if (!decompDictFile.empty() && !decompDictFile.isAbsolute())
+    {
+        decompDictFile = runTime.globalPath()/decompDictFile;
+    }
 
     return 0;
 }
