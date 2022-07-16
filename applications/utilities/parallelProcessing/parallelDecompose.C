@@ -37,6 +37,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
+#include "error.H"
 
 int main(int argc, char* argv[]) {
 
@@ -57,11 +58,41 @@ int main(int argc, char* argv[]) {
     #include "createTime.H"
 
     // get custom decomposeParDict location
-    fileName decompDictFile(args.get<fileName>("decomposeParDict", ""));
+    fileName decompDictFile(args.getOrDefault<fileName>("decomposeParDict", ""));
     if (!decompDictFile.empty() && !decompDictFile.isAbsolute())
     {
         decompDictFile = runTime.globalPath()/decompDictFile;
     }
+    else {
+        decompDictFile = "decomposeParDict";
+    }
+
+    // create a dictionary object
+    IOdictionary decompDict
+    (
+        IOobject
+        (
+            decompDictFile,
+            runTime.system(),
+            runTime,
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE
+        )
+    );
+    // get decomposition method
+    word method;
+    decompDict.lookup("method") >> method;
+
+    // if method is not simple, print error and exit the program
+    if (method != "simple") {
+        FatalErrorInFunction
+                    << "Specified method type " << method
+                    << " is not implemented"
+                    << exit(FatalError);
+    }
+
+    // get number of processes from the dict
+    scalar nProc(readScalar(decompDict.lookup("numberOfSubdomains")));
 
     return 0;
 }
