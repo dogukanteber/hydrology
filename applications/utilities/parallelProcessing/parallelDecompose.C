@@ -38,6 +38,7 @@ Description
 
 #include "fvCFD.H"
 #include "error.H"
+#include "parallelDomainDecomposition.H"
 
 int main(int argc, char* argv[]) {
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
     (
         "Decompose a mesh and fields of a case in parallel execution"
     );
-    argList::noParallel();
+    argList::noCheckProcessorDirectories();
     argList::addOption
     (
         "decomposeParDict",
@@ -53,9 +54,14 @@ int main(int argc, char* argv[]) {
         "Use specified file for decomposePar dictionary"
     );
     
+    fileHandler().distributed(true);
+
     #include "setRootCase.H"
 
     #include "createTime.H"
+    runTime.functionObjects().off();  // Extra safety?
+
+    Pout << "Hello from process " << Pstream::myProcNo() << endl;
 
     // get custom decomposeParDict location
     fileName decompDictFile(args.getOrDefault<fileName>("decomposeParDict", ""));
