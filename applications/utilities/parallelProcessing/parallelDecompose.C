@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     (
         IOobject
         (
-            "region0",  // change this later!!
+            parallelDomainDecomposition::polyMesh::defaultRegion,
             baseRunTime.timeName(),
             baseRunTime,
             IOobject::NO_READ,

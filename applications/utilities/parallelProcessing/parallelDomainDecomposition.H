@@ -48,23 +48,42 @@ SourceFiles
 namespace Foam
 {
 
-/*---------------------------------------------------------------------------*\
-                     Class parallelDomainDecomposition Declaration
-\*---------------------------------------------------------------------------*/
+    /*---------------------------------------------------------------------------*\
+                         Class parallelDomainDecomposition Declaration
+    \*---------------------------------------------------------------------------*/
 
     class parallelDomainDecomposition
+        : public fvMesh
     {
     private:
         label procNo_;
         labelList cellToProc_;
-        labelListList procPointAddressing_;
+        labelList procPointAddressing_;
+        labelList procCellAddressing_;
+        labelList procPatchSize_;
+        labelList procPatchStartIndex_;
+        labelList procNeighbourProcessors_;
+        labelList procProcessorPatchSize_;
+        labelList procProcessorPatchStartIndex_;
+        labelListList procProcessorPatchSubPatchIDs_;
+        labelListList procProcessorPatchSubPatchStarts_;
+
+        //- Optional: points at the facesInstance
+        autoPtr<pointIOField> facesInstancePointsPtr_;
+        List<DynamicList<label>> procFaceAddressing_;
+
+        void distributeCells();
 
     public:
-        parallelDomainDecomposition();
+        parallelDomainDecomposition(const IOobject& io, label procNo);
         ~parallelDomainDecomposition() = default;
+
+        void decomposeMesh();
+        bool writeDecomposition();
+
     };
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
 
