@@ -73,6 +73,7 @@ namespace Foam
         List<DynamicList<label>> procFaceAddressing_;
 
         void distributeCells();
+        labelList assignCellsToProc(const labelUList& map);
 
     public:
         parallelDomainDecomposition(const IOobject& io, label procNo);

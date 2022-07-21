@@ -71,12 +71,23 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
 {
     Pout << "decomposeMesh method is called" << endl;
     distributeCells();
+
+    Info<< "\nCalculating original mesh data" << endl;
+
+    // set references to the original mesh
+    const polyBoundaryMesh& patches = boundaryMesh();
+    const faceList& fcs = faces();
+    const labelList& owner = faceOwner();
+    const labelList& neighbour = faceNeighbour();
+
+    Info<< "\nDistributing cells to processors" << endl;
+    procCellAddressing_ = assignCellsToProc(cellToProc_);
 }
 
 bool Foam::parallelDomainDecomposition::writeDecomposition()
 {
     Pout << "writeDecomposition is called" << endl;
-    Pout << "\nCalculating original mesh data for process " << Pstream::myProcNo() << endl;
+    Pout << "\nCalculating original mesh data for process " << procNo_ << endl;
 
     return true;
 }
@@ -122,6 +133,44 @@ void Foam::parallelDomainDecomposition::distributeCells()
     Info<< "\nFinished decomposition in "
         << decompositionTime.elapsedCpuTime()
         << " s" << endl;
+}
+
+/*
+    TODO: there is a subtle bug that I could not fix yet.
+    To understand the bug, run decomposePar and parallelDecompose.
+    Then compare procCellAddressing_
+*/
+// assign each cell to its corresponding process.
+// note: the code is copied from invertOneToMany method and changed.
+Foam::labelList Foam::parallelDomainDecomposition::assignCellsToProc(
+    const labelUList& map
+)
+{
+    // each process will hold the information of how many cells that they have
+    label procCellSize(0);
+
+    for (const label newIdx : map)
+    {
+        if (newIdx == procNo_)
+        {
+            ++procCellSize;
+        }
+    }
+
+    labelList inverse(procCellSize);
+    procCellSize = 0;
+
+    label i = 0;
+    for (const label newIdx : map)
+    {
+        if (newIdx == procNo_)
+        {
+            inverse[procCellSize++] = i;
+        }
+        ++i;
+    }
+
+    return inverse;
 }
 
 // ************************************************************************* //
