@@ -27,10 +27,101 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "parallelDomainDecomposition.H"
+#include "cpuTime.H"
+#include "decompositionMethod.H"
+#include "decompositionModel.H"
+#include "fvCFD.H"
 
-Foam::parallelDomainDecomposition::parallelDomainDecomposition()
+// change the constructor
+Foam::parallelDomainDecomposition::parallelDomainDecomposition(
+    const IOobject &io,
+    label procNo)
+    : fvMesh(io),
+      facesInstancePointsPtr_(
+          pointsInstance() != facesInstance()
+              ? new pointIOField(
+                    IOobject(
+                        "points",
+                        facesInstance(),
+                        polyMesh::meshSubDir,
+                        *this,
+                        IOobject::MUST_READ,
+                        IOobject::NO_WRITE,
+                        false))
+              : nullptr),
+      procNo_(
+          procNo),
+      cellToProc_(nCells()),
+      procPointAddressing_(8),
+      procFaceAddressing_(8),
+      procCellAddressing_(8),
+      procPatchSize_(8),
+      procPatchStartIndex_(8),
+      procNeighbourProcessors_(8),
+      procProcessorPatchSize_(8),
+      procProcessorPatchStartIndex_(8),
+      procProcessorPatchSubPatchIDs_(8),
+      procProcessorPatchSubPatchStarts_(8)
 {
-    Info << "parallelDomainDecomposition constructor is called" << endl;
+    // TODO: change constructor initializer list
+    Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
+}
+
+void Foam::parallelDomainDecomposition::decomposeMesh()
+{
+    Pout << "decomposeMesh method is called" << endl;
+    distributeCells();
+}
+
+bool Foam::parallelDomainDecomposition::writeDecomposition()
+{
+    Pout << "writeDecomposition is called" << endl;
+    Pout << "\nCalculating original mesh data for process " << Pstream::myProcNo() << endl;
+
+    return true;
+}
+
+void Foam::parallelDomainDecomposition::distributeCells()
+{
+    Info<< "\nCalculating distribution of cells" << endl;
+
+    cpuTime decompositionTime;
+    const decompositionModel& method = decompositionModel::New
+    (
+        *this
+    );
+
+    word weightName;
+    scalarField cellWeights;
+
+    if (method.readIfPresent("weightField", weightName))
+    {
+        volScalarField weights
+        (
+            IOobject
+            (
+                weightName,
+                time().timeName(),
+                *this,
+                IOobject::MUST_READ,
+                IOobject::NO_WRITE
+            ),
+            *this
+        );
+        cellWeights = weights.primitiveField();
+    }
+
+    cellToProc_ = method.decomposer().decompose(*this, cellWeights);
+
+    // Pout << cellToProc_ << endl;
+    // autoPtr<OFstream> outputFilePtr;
+    // fileName outputDir = "/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debug";
+    // outputFilePtr.reset(new OFstream(outputDir/"cellToProc_"));
+    // outputFilePtr() << cellToProc_ << endl;
+
+    Info<< "\nFinished decomposition in "
+        << decompositionTime.elapsedCpuTime()
+        << " s" << endl;
 }
 
 // ************************************************************************* //

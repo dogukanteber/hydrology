@@ -10,8 +10,13 @@ endif
 
 EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
-    -I$(LIB_SRC)/meshTools/lnInclude
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/parallel/decompose/decompositionMethods/lnInclude \
+    -I$(LIB_SRC)/parallel/decompose/decompose/lnInclude \
+    -I$(LIB_SRC)/parallel/decompose/faDecompose/lnInclude
 
 EXE_LIBS = \
     -lfiniteVolume \
-    -lmeshTools
+    -lmeshTools \
+    -ldecompositionMethods \
+    -ldecompose \

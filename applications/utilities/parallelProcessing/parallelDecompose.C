@@ -38,6 +38,7 @@ Description
 
 #include "fvCFD.H"
 #include "error.H"
+#include "parallelDomainDecomposition.H"
 
 int main(int argc, char* argv[]) {
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
     (
         "Decompose a mesh and fields of a case in parallel execution"
     );
-    argList::noParallel();
+    argList::noCheckProcessorDirectories();
     argList::addOption
     (
         "decomposeParDict",
@@ -53,9 +54,12 @@ int main(int argc, char* argv[]) {
         "Use specified file for decomposePar dictionary"
     );
     
+    fileHandler().distributed(true);
+
     #include "setRootCase.H"
 
     #include "createTime.H"
+    runTime.functionObjects().off();  // Extra safety?
 
     // get custom decomposeParDict location
     fileName decompDictFile(args.getOrDefault<fileName>("decomposeParDict", ""));
@@ -93,6 +97,35 @@ int main(int argc, char* argv[]) {
 
     // get number of processes from the dict
     scalar nProc(readScalar(decompDict.lookup("numberOfSubdomains")));
+
+    Info<< "Create undecomposed database"<< nl << endl;
+    Time baseRunTime
+    (
+        runTime.controlDict(),
+        runTime.rootPath(),
+        runTime.globalCaseName(),
+        runTime.system(),
+        runTime.constant(),
+        false                   // enableFunctionObjects
+    );
+
+    Pout << "Create mesh for process " << Pstream::myProcNo() << endl;
+    parallelDomainDecomposition mesh
+    (
+        IOobject
+        (
+            parallelDomainDecomposition::polyMesh::defaultRegion,
+            baseRunTime.timeName(),
+            baseRunTime,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE,
+            false
+        ),
+        Pstream::myProcNo()
+    );
+
+    mesh.decomposeMesh();
+    mesh.writeDecomposition();
 
     return 0;
 }
