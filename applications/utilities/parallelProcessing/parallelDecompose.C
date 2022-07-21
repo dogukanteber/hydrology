@@ -58,6 +58,13 @@ int main(int argc, char* argv[]) {
 
     #include "setRootCase.H"
 
+    if (!Pstream::parRun())
+    {
+        FatalErrorInFunction
+            << ": This utility can only be run parallel"
+            << exit(FatalError);
+    }
+
     #include "createTime.H"
     runTime.functionObjects().off();  // Extra safety?
 
