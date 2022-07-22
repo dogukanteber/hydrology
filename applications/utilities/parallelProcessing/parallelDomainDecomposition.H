@@ -70,7 +70,7 @@ namespace Foam
 
         //- Optional: points at the facesInstance
         autoPtr<pointIOField> facesInstancePointsPtr_;
-        List<DynamicList<label>> procFaceAddressing_;
+        DynamicList<label> procFaceAddressing_;
 
         void distributeCells();
         labelList assignCellsToProc(const labelUList& map);
