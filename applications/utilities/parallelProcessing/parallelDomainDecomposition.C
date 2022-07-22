@@ -50,18 +50,7 @@ Foam::parallelDomainDecomposition::parallelDomainDecomposition(
                         false))
               : nullptr),
       procNo_(
-          procNo),
-      cellToProc_(nCells()),
-      procPointAddressing_(8),
-      procFaceAddressing_(8),
-      procCellAddressing_(8),
-      procPatchSize_(8),
-      procPatchStartIndex_(8),
-      procNeighbourProcessors_(8),
-      procProcessorPatchSize_(8),
-      procProcessorPatchStartIndex_(8),
-      procProcessorPatchSubPatchIDs_(8),
-      procProcessorPatchSubPatchStarts_(8)
+          procNo)
 {
     // TODO: change constructor initializer list
     Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
@@ -80,39 +69,49 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     const labelList& owner = faceOwner();
     const labelList& neighbour = faceNeighbour();
 
+    fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
+    mkDir(path);
+    autoPtr<OFstream> outputFilePtr;
+
     Info<< "\nDistributing cells to processors" << endl;
     procCellAddressing_ = assignCellsToProc(cellToProc_);
 
+    outputFilePtr.reset(new OFstream(path/"procCellAddressing_"));
+    outputFilePtr() << procCellAddressing_ << endl;
+
     Info<< "\nDistributing faces to processors" << endl;
+
+    // Loop through all internal faces and decide which processor they belong to
+    // First visit all internal faces. If cells at both sides belong to the
+    // same processor, the face is an internal face. If they are different,
+    // it belongs to both processors.
+
+    // procFaceAddressing_.setSize(nProcs_);
 
     // Internal faces
     forAll(neighbour, facei)
     {
-        // procNo_ = cellToProc_[owner[facei]]
-        if (procNo_ == cellToProc_[neighbour[facei]])
+        if (procNo_ == cellToProc_[owner[facei]])
         {
-            // Face internal to processor. Notice no turning index.
-            procFaceAddressing_.append(facei+1);
+            if (cellToProc_[owner[facei]] == cellToProc_[neighbour[facei]])
+            {
+                // Face internal to processor. Notice no turning index.
+                procFaceAddressing_.append(facei+1);
+            }
         }
     }
     // for all processors, set the size of start index and patch size
     // lists to the number of patches in the mesh
 
-    forAll(procPatchSize_, proci)
-    {
-        procPatchSize_.setSize(patches.size());
-        procPatchStartIndex_.setSize(patches.size());
-    }
+    procPatchSize_.setSize(patches.size());
+    procPatchStartIndex_.setSize(patches.size());
 
     forAll(patches, patchi)
     {
         // Reset size and start index for all processors
-        forAll(procPatchSize_, proci)
-        {
-            procPatchSize_[patchi] = 0;
-            procPatchStartIndex_[patchi] =
-                procFaceAddressing_.size();
-        }
+
+        procPatchSize_[patchi] = 0;
+        procPatchStartIndex_[patchi] = procFaceAddressing_.size();
 
         const label patchStart = patches[patchi].start();
 
@@ -126,11 +125,15 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
 
             forAll(patchFaceCells, facei)
             {
-                // add the face without turning index
-                procFaceAddressing_.append(patchStart+facei+1);
+                const label curProc = cellToProc_[patchFaceCells[facei]];
+                if (procNo_ == curProc)
+                {
+                    // add the face without turning index
+                    procFaceAddressing_.append(patchStart+facei+1);
 
-                // increment the number of faces for this patch
-                procPatchSize_[patchi]++;
+                    // increment the number of faces for this patch
+                    procPatchSize_[patchi]++;
+                }
             }
         }
         else
@@ -147,18 +150,31 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
 
             forAll(patchFaceCells, facei)
             {
-                // procNo_ = cellToProc_[patchFaceCells[facei]]
+                const label curProc = cellToProc_[patchFaceCells[facei]];
                 const label nbrProc = cellToProc_[nbrPatchFaceCells[facei]];
-                if (procNo_ == nbrProc)
+                if (procNo_ == curProc)
                 {
-                    // add the face without turning index
-                    procFaceAddressing_.append(patchStart+facei+1);
-                    // increment the number of faces for this patch
-                    procPatchSize_[patchi]++;
+                    if (curProc == nbrProc)
+                    {
+                        // add the face without turning index
+                        procFaceAddressing_.append(patchStart+facei+1);
+                        // increment the number of faces for this patch
+                        procPatchSize_[patchi]++;
+                    }
                 }
             }
         }
     }
+
+    outputFilePtr.reset(new OFstream(path/"procPatchSize_"));
+    outputFilePtr() << procPatchSize_ << endl;
+    
+    outputFilePtr.reset(new OFstream(path/"procPatchStartIndex_"));
+    outputFilePtr() << procPatchStartIndex_ << endl;
+
+    outputFilePtr.reset(new OFstream(path/"procFaceAddressing_"));
+    outputFilePtr() << procFaceAddressing_ << endl;
+    
 }
 
 bool Foam::parallelDomainDecomposition::writeDecomposition()
