@@ -57,6 +57,7 @@ namespace Foam
     {
     private:
         label procNo_;
+        label nProcs_;
         labelList cellToProc_;
         labelList procPointAddressing_;
         labelList procCellAddressing_;
@@ -65,8 +66,8 @@ namespace Foam
         labelList procNeighbourProcessors_;
         labelList procProcessorPatchSize_;
         labelList procProcessorPatchStartIndex_;
-        labelListList procProcessorPatchSubPatchIDs_;
-        labelListList procProcessorPatchSubPatchStarts_;
+        labelList procProcessorPatchSubPatchIDs_;
+        labelList procProcessorPatchSubPatchStarts_;
 
         //- Optional: points at the facesInstance
         autoPtr<pointIOField> facesInstancePointsPtr_;
@@ -74,9 +75,31 @@ namespace Foam
 
         void distributeCells();
         labelList assignCellsToProc(const labelUList& map);
+        void addInterProcFace
+        (
+            const label facei,
+            const label ownerProc,
+            const label nbrProc,
+
+            List<Map<label>>& nbrToInterPatch,
+            List<DynamicList<DynamicList<label>>>& interPatchFaces
+        ) const;
+
+        //- Generate sub patch info for processor cyclics
+        template<class BinaryOp>
+        void processInterCyclics
+        (
+            const polyBoundaryMesh& patches,
+            List<DynamicList<DynamicList<label>>>& interPatchFaces,
+            List<Map<label>>& procNbrToInterPatch,
+            labelListList& subPatchIDs,
+            labelListList& subPatchStarts,
+            bool owner,
+            BinaryOp bop
+        ) const;
 
     public:
-        parallelDomainDecomposition(const IOobject& io, label procNo);
+        parallelDomainDecomposition(const IOobject& io, label procNo, label nProcs);
         ~parallelDomainDecomposition() = default;
 
         void decomposeMesh();

@@ -128,7 +128,8 @@ int main(int argc, char* argv[]) {
             IOobject::NO_WRITE,
             false
         ),
-        Pstream::myProcNo()
+        Pstream::myProcNo(),
+        Pstream::nProcs()
     );
 
     mesh.decomposeMesh();
