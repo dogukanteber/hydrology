@@ -66,8 +66,8 @@ namespace Foam
         labelList procNeighbourProcessors_;
         labelList procProcessorPatchSize_;
         labelList procProcessorPatchStartIndex_;
-        labelList procProcessorPatchSubPatchIDs_;
-        labelList procProcessorPatchSubPatchStarts_;
+        labelListList procProcessorPatchSubPatchIDs_;
+        labelListList procProcessorPatchSubPatchStarts_;
 
         //- Optional: points at the facesInstance
         autoPtr<pointIOField> facesInstancePointsPtr_;
@@ -96,7 +96,9 @@ namespace Foam
             labelListList& subPatchStarts,
             bool owner,
             BinaryOp bop
-        ) const;
+        );
+
+        void append(labelList& lst, const label elem);
 
     public:
         parallelDomainDecomposition(const IOobject& io, label procNo, label nProcs);

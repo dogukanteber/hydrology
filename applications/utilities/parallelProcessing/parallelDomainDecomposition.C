@@ -32,6 +32,8 @@ License
 #include "decompositionModel.H"
 #include "fvCFD.H"
 #include "cyclicPolyPatch.H"
+#include "IOstreams.H"
+#include "bitSet.H"
 
 // change the constructor
 Foam::parallelDomainDecomposition::parallelDomainDecomposition(
@@ -94,10 +96,10 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     // Internal faces
     forAll(neighbour, facei)
     {
-        label owner = cellToProc_[owner[facei]];
-        if (procNo_ == owner)
+        label currProc = cellToProc_[owner[facei]];
+        if (procNo_ == currProc)
         {
-            if (owner == cellToProc_[neighbour[facei]])
+            if (currProc == cellToProc_[neighbour[facei]])
             {
                 // Face internal to processor. Notice no turning index.
                 procFaceAddressing_.append(facei+1);
@@ -213,10 +215,10 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         }
     }
 
-    outputFilePtr.reset(new OFstream(outputDir/"procNbrToInterPatch"));
+    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
     outputFilePtr() << procNbrToInterPatch << endl;
 
-    outputFilePtr.reset(new OFstream(outputDir/"interPatchFaces"));
+    outputFilePtr.reset(new OFstream(path/"interPatchFaces"));
     outputFilePtr() << interPatchFaces << endl;
 
     // Add the proper processor faces to the sub information. For faces
@@ -229,10 +231,10 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     subPatchIDs.setSize(nInterfaces, labelList(1, label(-1)));
     subPatchStarts.setSize(nInterfaces, labelList(1, Zero));
 
-    outputFilePtr.reset(new OFstream(outputDir/"subPatchIDs"));
+    outputFilePtr.reset(new OFstream(path/"subPatchIDs"));
     outputFilePtr() << subPatchIDs << endl;
 
-    outputFilePtr.reset(new OFstream(outputDir/"subPatchStarts"));
+    outputFilePtr.reset(new OFstream(path/"subPatchStarts"));
     outputFilePtr() << subPatchStarts << endl;
 
     // Special handling needed for the case that multiple processor cyclic
@@ -302,8 +304,103 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         greaterOp<label>()
     );
 
-    outputFilePtr.reset(new OFstream(outputDir/"procNbrToInterPatch"));
+    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
     outputFilePtr() << procNbrToInterPatch << endl;
+
+    // Sort inter-proc patch by neighbour
+    labelList order;
+    label nInterfaces2 = procNbrToInterPatch[procNo_].size();
+
+    procNeighbourProcessors_.setSize(nInterfaces2);
+    procProcessorPatchSize_.setSize(nInterfaces2);
+    procProcessorPatchStartIndex_.setSize(nInterfaces2);
+    procProcessorPatchSubPatchIDs_.setSize(nInterfaces2);
+    procProcessorPatchSubPatchStarts_.setSize(nInterfaces2);
+
+    // Get sorted neighbour processors
+    const Map<label>& curNbrToInterPatch = procNbrToInterPatch[procNo_];
+    labelList nbrs = curNbrToInterPatch.toc();
+
+    sortedOrder(nbrs, order);
+
+    DynamicList<DynamicList<label>>& curInterPatchFaces =
+        interPatchFaces[procNo_];
+
+    forAll(nbrs, i)
+    {
+        const label nbrProc = nbrs[i];
+        const label interPatch = curNbrToInterPatch[nbrProc];
+
+        procNeighbourProcessors_[i] = nbrProc;
+        procProcessorPatchSize_[i] =
+            curInterPatchFaces[interPatch].size();
+        procProcessorPatchStartIndex_[i] =
+            procFaceAddressing_.size();
+
+        // TODO
+        // Add size as last element to substarts and transfer
+        append
+        (
+            subPatchStarts[interPatch],
+            curInterPatchFaces[interPatch].size()
+        );
+        procProcessorPatchSubPatchIDs_[i].transfer
+        (
+            subPatchIDs[interPatch]
+        );
+        procProcessorPatchSubPatchStarts_[i].transfer
+        (
+            subPatchStarts[interPatch]
+        );
+
+        DynamicList<label>& interPatchFaces =
+            curInterPatchFaces[interPatch];
+
+        forAll(interPatchFaces, j)
+        {
+            procFaceAddressing_.append(interPatchFaces[j]);
+        }
+        interPatchFaces.clearStorage();
+    }
+        curInterPatchFaces.clearStorage();
+        procFaceAddressing_.shrink();
+
+    outputFilePtr.reset(new OFstream(path/"procNeighbourProcessors_"));
+    outputFilePtr() << procNeighbourProcessors_ << endl;
+
+    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSize_"));
+    outputFilePtr() << procProcessorPatchSize_ << endl;
+
+    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
+    outputFilePtr() << procNbrToInterPatch << endl;
+
+    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSubPatchIDs_"));
+    outputFilePtr() << procProcessorPatchSubPatchIDs_ << endl;
+
+    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSubPatchStarts_"));
+    outputFilePtr() << procProcessorPatchSubPatchStarts_ << endl;
+
+    Info<< "\nDistributing points to processors" << endl;
+    // For every processor, loop through the list of faces for the processor.
+    // For every face, loop through the list of points and mark the point as
+    // used for the processor. Collect the list of used points for the
+    // processor.
+
+    bitSet pointsInUse(nPoints(), false);
+
+    // For each of the faces used
+    for (const label facei : procFaceAddressing_)
+    {
+        // Because of the turning index, some face labels may be -ve
+        const labelList& facePoints = fcs[mag(facei) - 1];
+
+        // Mark the face points as being used
+        pointsInUse.set(facePoints);
+    }
+    procPointAddressing_ = pointsInUse.sortedToc();
+
+    outputFilePtr.reset(new OFstream(outputDir/"procPointAddressing_"));
+    outputFilePtr() << procPointAddressing_ << endl;
 }
 
 bool Foam::parallelDomainDecomposition::writeDecomposition()
@@ -467,7 +564,7 @@ void Foam::parallelDomainDecomposition::processInterCyclics
     labelListList& subPatchStarts,
     bool owner,
     BinaryOp bop
-) const
+)
 {
     // Processor boundaries from split cyclics
     forAll(patches, patchi)
@@ -517,11 +614,11 @@ void Foam::parallelDomainDecomposition::processInterCyclics
             }
 
             // 1. Check if any faces added to existing interfaces
-            const labelList& curOldSizes = oldInterfaceSizes;
+            const labelList& curOldSizes2 = oldInterfaceSizes;
 
-            forAll(curOldSizes, interI)
+            forAll(curOldSizes2, interI)
             {
-                label oldSz = curOldSizes[interI];
+                label oldSz = curOldSizes2[interI];
                 if (interPatchFaces[procNo_][interI].size() > oldSz)
                 {
                     // Added faces to this interface. Add an entry
@@ -535,6 +632,13 @@ void Foam::parallelDomainDecomposition::processInterCyclics
             subPatchStarts.setSize(nIntfcs, labelList(1, Zero));
         }
     }
+}
+
+void Foam::parallelDomainDecomposition::append(labelList& lst, const label elem)
+{
+    label sz = lst.size();
+    lst.setSize(sz+1);
+    lst[sz] = elem;
 }
 
 // ************************************************************************* //
