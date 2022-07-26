@@ -35,7 +35,8 @@ License
 #include "IOstreams.H"
 #include "bitSet.H"
 
-// change the constructor
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
 Foam::parallelDomainDecomposition::parallelDomainDecomposition(
     const IOobject &io,
     label procNo,
@@ -57,9 +58,242 @@ Foam::parallelDomainDecomposition::parallelDomainDecomposition(
           procNo),
       nProcs_(nProcs)
 {
-    // TODO: change constructor initializer list
     Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
 }
+
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+void Foam::parallelDomainDecomposition::distributeCells()
+{
+    Info<< "\nCalculating distribution of cells" << endl;
+
+    cpuTime decompositionTime;
+    const decompositionModel& method = decompositionModel::New
+    (
+        *this
+    );
+
+    word weightName;
+    scalarField cellWeights;
+
+    if (method.readIfPresent("weightField", weightName))
+    {
+        volScalarField weights
+        (
+            IOobject
+            (
+                weightName,
+                time().timeName(),
+                *this,
+                IOobject::MUST_READ,
+                IOobject::NO_WRITE
+            ),
+            *this
+        );
+        cellWeights = weights.primitiveField();
+    }
+
+    cellToProc_ = method.decomposer().decompose(*this, cellWeights);
+
+    Info<< "\nFinished decomposition in "
+        << decompositionTime.elapsedCpuTime()
+        << " s" << endl;
+}
+
+/*
+    TODO: there is a subtle bug that I could not fix yet.
+    To understand the bug, run decomposePar and parallelDecompose.
+    Then compare procCellAddressing_
+*/
+// assign each cell to its corresponding process.
+// note: the code is copied from invertOneToMany method and changed.
+Foam::labelList Foam::parallelDomainDecomposition::assignCellsToProc(
+    const labelUList& map
+)
+{
+    label len(4);
+    labelList sizes(len, Zero);
+
+    for (const label newIdx : map)
+    {
+        if (newIdx >= 0)
+        {
+            ++sizes[newIdx];
+        }
+    }
+
+    Info << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
+    Pout << "P: " << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
+    // autoPtr<OFstream> outputFilePtr;
+    // fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
+    // outputFilePtr.reset(new OFstream(path/"assingCellsToProc"));
+    // each process will hold the information of how many cells that they have
+    label procCellSize(0);
+    // label count(1);
+    for (const label newIdx : map)
+    {
+        // outputFilePtr() << "count : " << count << tab << "newIdx : " << newIdx << tab;
+        if (newIdx == procNo_)
+        {
+            ++procCellSize;
+            // outputFilePtr() << "Inside the if. newIdx : " << newIdx << " procNo : " << procNo_ << " procCellSize : " << procCellSize << tab << endl << endl;
+        }
+        // count++;
+    }
+
+    labelList inverse(procCellSize);
+    procCellSize = 0;
+
+    label i = 0;
+    for (const label newIdx : map)
+    {
+        if (newIdx == procNo_)
+        {
+            inverse[procCellSize++] = i;
+        }
+        ++i;
+    }
+
+    return inverse;
+}
+
+void Foam::parallelDomainDecomposition::addInterProcFace
+(
+    const label facei,
+    const label ownerProc,
+    const label nbrProc,
+
+    List<Map<label>>& nbrToInterPatch,
+    List<DynamicList<DynamicList<label>>>& interPatchFaces
+) const
+{
+    // Introduce turning index only for internal faces (are duplicated).
+    const label ownerIndex = facei+1;
+    const label nbrIndex = -(facei+1);
+
+    const auto patchiter = nbrToInterPatch[ownerProc].cfind(nbrProc);
+
+    if (patchiter.found())
+    {
+        // Existing interproc patch. Add to both sides.
+        const label toNbrProcPatchi = *patchiter;
+        interPatchFaces[ownerProc][toNbrProcPatchi].append(ownerIndex);
+
+        if (isInternalFace(facei))
+        {
+            label toOwnerProcPatchi = nbrToInterPatch[nbrProc][ownerProc];
+            interPatchFaces[nbrProc][toOwnerProcPatchi].append(nbrIndex);
+        }
+    }
+    else
+    {
+        // Create new interproc patches.
+        const label toNbrProcPatchi = nbrToInterPatch[ownerProc].size();
+        nbrToInterPatch[ownerProc].insert(nbrProc, toNbrProcPatchi);
+
+        DynamicList<label> oneFace;
+        oneFace.append(ownerIndex);
+        interPatchFaces[ownerProc].append(oneFace);
+
+        if (isInternalFace(facei))
+        {
+            label toOwnerProcPatchi = nbrToInterPatch[nbrProc].size();
+            nbrToInterPatch[nbrProc].insert(ownerProc, toOwnerProcPatchi);
+            oneFace.clear();
+            oneFace.append(nbrIndex);
+            interPatchFaces[nbrProc].append(oneFace);
+        }
+    }
+}
+
+template<class BinaryOp>
+void Foam::parallelDomainDecomposition::processInterCyclics
+(
+    const polyBoundaryMesh& patches,
+    List<DynamicList<DynamicList<label>>>& interPatchFaces,
+    List<Map<label>>& procNbrToInterPatch,
+    labelListList& subPatchIDs,
+    labelListList& subPatchStarts,
+    bool owner,
+    BinaryOp bop
+)
+{
+    // Processor boundaries from split cyclics
+    forAll(patches, patchi)
+    {
+        const auto& pp = patches[patchi];
+        const auto* cpp = isA<cyclicPolyPatch>(pp);
+
+        if (cpp && cpp->owner() == owner)
+        {
+            // cyclic: check opposite side on this processor
+            const auto& cycPatch = *cpp;
+            const auto& nbrPatch = cycPatch.neighbPatch();
+
+            // cyclic: check opposite side on this processor
+            const labelUList& patchFaceCells = pp.faceCells();
+            const labelUList& nbrPatchFaceCells = nbrPatch.faceCells();
+
+            // Store old sizes. Used to detect which inter-proc patches
+            // have been added to.
+            labelList oldInterfaceSizes;
+            labelList& curOldSizes = oldInterfaceSizes;
+
+            curOldSizes.setSize(interPatchFaces[procNo_].size());
+            forAll(curOldSizes, interI)
+            {
+                curOldSizes[interI] =
+                    interPatchFaces[procNo_][interI].size();
+            }
+
+            // Add faces with different owner and neighbour processors
+            forAll(patchFaceCells, facei)
+            {
+                const label ownerProc = cellToProc_[patchFaceCells[facei]];
+                const label nbrProc = cellToProc_[nbrPatchFaceCells[facei]];
+                if (bop(ownerProc, nbrProc))
+                {
+                    // inter - processor patch face found.
+                    addInterProcFace
+                    (
+                        pp.start()+facei,
+                        ownerProc,
+                        nbrProc,
+                        procNbrToInterPatch,
+                        interPatchFaces
+                    );
+                }
+            }
+
+            // 1. Check if any faces added to existing interfaces
+            const labelList& curOldSizes2 = oldInterfaceSizes;
+
+            forAll(curOldSizes2, interI)
+            {
+                label oldSz = curOldSizes2[interI];
+                if (interPatchFaces[procNo_][interI].size() > oldSz)
+                {
+                    // Added faces to this interface. Add an entry
+                    append(subPatchIDs[interI], patchi);
+                    append(subPatchStarts[interI], oldSz);
+                }
+            }
+            // 2. Any new interfaces
+            label nIntfcs = interPatchFaces[procNo_].size();
+            subPatchIDs.setSize(nIntfcs, labelList(1, patchi));
+            subPatchStarts.setSize(nIntfcs, labelList(1, Zero));
+        }
+    }
+}
+
+void Foam::parallelDomainDecomposition::append(labelList& lst, const label elem)
+{
+    label sz = lst.size();
+    lst.setSize(sz+1);
+    lst[sz] = elem;
+}
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 void Foam::parallelDomainDecomposition::decomposeMesh()
 {
@@ -399,7 +633,7 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     }
     procPointAddressing_ = pointsInUse.sortedToc();
 
-    outputFilePtr.reset(new OFstream(outputDir/"procPointAddressing_"));
+    outputFilePtr.reset(new OFstream(path/"procPointAddressing_"));
     outputFilePtr() << procPointAddressing_ << endl;
 }
 
@@ -411,234 +645,5 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
     return true;
 }
 
-void Foam::parallelDomainDecomposition::distributeCells()
-{
-    Info<< "\nCalculating distribution of cells" << endl;
-
-    cpuTime decompositionTime;
-    const decompositionModel& method = decompositionModel::New
-    (
-        *this
-    );
-
-    word weightName;
-    scalarField cellWeights;
-
-    if (method.readIfPresent("weightField", weightName))
-    {
-        volScalarField weights
-        (
-            IOobject
-            (
-                weightName,
-                time().timeName(),
-                *this,
-                IOobject::MUST_READ,
-                IOobject::NO_WRITE
-            ),
-            *this
-        );
-        cellWeights = weights.primitiveField();
-    }
-
-    cellToProc_ = method.decomposer().decompose(*this, cellWeights);
-
-    Info<< "\nFinished decomposition in "
-        << decompositionTime.elapsedCpuTime()
-        << " s" << endl;
-}
-
-/*
-    TODO: there is a subtle bug that I could not fix yet.
-    To understand the bug, run decomposePar and parallelDecompose.
-    Then compare procCellAddressing_
-*/
-// assign each cell to its corresponding process.
-// note: the code is copied from invertOneToMany method and changed.
-Foam::labelList Foam::parallelDomainDecomposition::assignCellsToProc(
-    const labelUList& map
-)
-{
-    label len(4);
-    labelList sizes(len, Zero);
-
-    for (const label newIdx : map)
-    {
-        if (newIdx >= 0)
-        {
-            ++sizes[newIdx];
-        }
-    }
-
-    Info << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
-    Pout << "P: " << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
-    // autoPtr<OFstream> outputFilePtr;
-    // fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
-    // outputFilePtr.reset(new OFstream(path/"assingCellsToProc"));
-    // each process will hold the information of how many cells that they have
-    label procCellSize(0);
-    // label count(1);
-    for (const label newIdx : map)
-    {
-        // outputFilePtr() << "count : " << count << tab << "newIdx : " << newIdx << tab;
-        if (newIdx == procNo_)
-        {
-            ++procCellSize;
-            // outputFilePtr() << "Inside the if. newIdx : " << newIdx << " procNo : " << procNo_ << " procCellSize : " << procCellSize << tab << endl << endl;
-        }
-        // count++;
-    }
-
-    labelList inverse(procCellSize);
-    procCellSize = 0;
-
-    label i = 0;
-    for (const label newIdx : map)
-    {
-        if (newIdx == procNo_)
-        {
-            inverse[procCellSize++] = i;
-        }
-        ++i;
-    }
-
-    return inverse;
-}
-
-void Foam::parallelDomainDecomposition::addInterProcFace
-(
-    const label facei,
-    const label ownerProc,
-    const label nbrProc,
-
-    List<Map<label>>& nbrToInterPatch,
-    List<DynamicList<DynamicList<label>>>& interPatchFaces
-) const
-{
-    // Introduce turning index only for internal faces (are duplicated).
-    const label ownerIndex = facei+1;
-    const label nbrIndex = -(facei+1);
-
-    const auto patchiter = nbrToInterPatch[ownerProc].cfind(nbrProc);
-
-    if (patchiter.found())
-    {
-        // Existing interproc patch. Add to both sides.
-        const label toNbrProcPatchi = *patchiter;
-        interPatchFaces[ownerProc][toNbrProcPatchi].append(ownerIndex);
-
-        if (isInternalFace(facei))
-        {
-            label toOwnerProcPatchi = nbrToInterPatch[nbrProc][ownerProc];
-            interPatchFaces[nbrProc][toOwnerProcPatchi].append(nbrIndex);
-        }
-    }
-    else
-    {
-        // Create new interproc patches.
-        const label toNbrProcPatchi = nbrToInterPatch[ownerProc].size();
-        nbrToInterPatch[ownerProc].insert(nbrProc, toNbrProcPatchi);
-
-        DynamicList<label> oneFace;
-        oneFace.append(ownerIndex);
-        interPatchFaces[ownerProc].append(oneFace);
-
-        if (isInternalFace(facei))
-        {
-            label toOwnerProcPatchi = nbrToInterPatch[nbrProc].size();
-            nbrToInterPatch[nbrProc].insert(ownerProc, toOwnerProcPatchi);
-            oneFace.clear();
-            oneFace.append(nbrIndex);
-            interPatchFaces[nbrProc].append(oneFace);
-        }
-    }
-}
-
-template<class BinaryOp>
-void Foam::parallelDomainDecomposition::processInterCyclics
-(
-    const polyBoundaryMesh& patches,
-    List<DynamicList<DynamicList<label>>>& interPatchFaces,
-    List<Map<label>>& procNbrToInterPatch,
-    labelListList& subPatchIDs,
-    labelListList& subPatchStarts,
-    bool owner,
-    BinaryOp bop
-)
-{
-    // Processor boundaries from split cyclics
-    forAll(patches, patchi)
-    {
-        const auto& pp = patches[patchi];
-        const auto* cpp = isA<cyclicPolyPatch>(pp);
-
-        if (cpp && cpp->owner() == owner)
-        {
-            // cyclic: check opposite side on this processor
-            const auto& cycPatch = *cpp;
-            const auto& nbrPatch = cycPatch.neighbPatch();
-
-            // cyclic: check opposite side on this processor
-            const labelUList& patchFaceCells = pp.faceCells();
-            const labelUList& nbrPatchFaceCells = nbrPatch.faceCells();
-
-            // Store old sizes. Used to detect which inter-proc patches
-            // have been added to.
-            labelList oldInterfaceSizes;
-            labelList& curOldSizes = oldInterfaceSizes;
-
-            curOldSizes.setSize(interPatchFaces[procNo_].size());
-            forAll(curOldSizes, interI)
-            {
-                curOldSizes[interI] =
-                    interPatchFaces[procNo_][interI].size();
-            }
-
-            // Add faces with different owner and neighbour processors
-            forAll(patchFaceCells, facei)
-            {
-                const label ownerProc = cellToProc_[patchFaceCells[facei]];
-                const label nbrProc = cellToProc_[nbrPatchFaceCells[facei]];
-                if (bop(ownerProc, nbrProc))
-                {
-                    // inter - processor patch face found.
-                    addInterProcFace
-                    (
-                        pp.start()+facei,
-                        ownerProc,
-                        nbrProc,
-                        procNbrToInterPatch,
-                        interPatchFaces
-                    );
-                }
-            }
-
-            // 1. Check if any faces added to existing interfaces
-            const labelList& curOldSizes2 = oldInterfaceSizes;
-
-            forAll(curOldSizes2, interI)
-            {
-                label oldSz = curOldSizes2[interI];
-                if (interPatchFaces[procNo_][interI].size() > oldSz)
-                {
-                    // Added faces to this interface. Add an entry
-                    append(subPatchIDs[interI], patchi);
-                    append(subPatchStarts[interI], oldSz);
-                }
-            }
-            // 2. Any new interfaces
-            label nIntfcs = interPatchFaces[procNo_].size();
-            subPatchIDs.setSize(nIntfcs, labelList(1, patchi));
-            subPatchStarts.setSize(nIntfcs, labelList(1, Zero));
-        }
-    }
-}
-
-void Foam::parallelDomainDecomposition::append(labelList& lst, const label elem)
-{
-    label sz = lst.size();
-    lst.setSize(sz+1);
-    lst[sz] = elem;
-}
 
 // ************************************************************************* //

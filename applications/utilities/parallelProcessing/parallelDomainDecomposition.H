@@ -56,6 +56,8 @@ namespace Foam
         : public fvMesh
     {
     private:
+        //- Optional: points at the facesInstance
+        autoPtr<pointIOField> facesInstancePointsPtr_;
         label procNo_;
         label nProcs_;
         labelList cellToProc_;
@@ -69,8 +71,6 @@ namespace Foam
         labelListList procProcessorPatchSubPatchIDs_;
         labelListList procProcessorPatchSubPatchStarts_;
 
-        //- Optional: points at the facesInstance
-        autoPtr<pointIOField> facesInstancePointsPtr_;
         DynamicList<label> procFaceAddressing_;
 
         void distributeCells();
