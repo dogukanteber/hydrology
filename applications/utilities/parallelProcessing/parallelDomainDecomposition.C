@@ -994,6 +994,8 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
         time().caseName()/("processor" + Foam::name(procNo_))
     );
 
+    Pout << processorCasePath << endl;
+
     // create a database
     Time processorDb
     (
@@ -1044,9 +1046,6 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
     }
     else
     {
-        // Pout << procPoints << endl;
-        // Pout << procFaces << endl;
-        // Pout << procCells << endl;
         procMeshPtr = autoPtr<polyMesh>::New
         (
             IOobject
@@ -1059,8 +1058,6 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
             ),
             std::move(procPoints),
             std::move(procFaces),
-            // procCells variable contains negative values and
-            // because of that the program is throwing an error
             std::move(procCells)
         );
     }
@@ -1197,77 +1194,409 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
             ++nPatches;
         }
     }
-    // Pout << procPatches << endl;
-    // Info << procMesh << endl;
     procMesh.addPatches(procPatches);
 
     // Point zones
     {
-        // const pointZoneMesh& pz = pointZones();
+        const pointZoneMesh& pz = pointZones();
 
         // Go through all the zoned points and find out if they
         // belong to a zone.  If so, add it to the zone as
         // necessary
-        // List<DynamicList<label>> zonePoints(pz.size());
+        List<DynamicList<label>> zonePoints(pz.size());
 
-        // // Estimate size
-        // forAll(zonePoints, zonei)
-        // {
-        //     zonePoints[zonei].setCapacity(pz[zonei].size()/nProcs_);
-        // }
+        // Estimate size
+        forAll(zonePoints, zonei)
+        {
+            zonePoints[zonei].setCapacity(pz[zonei].size()/nProcs_);
+        }
 
-    //     // Use the pointToZone map to find out the single zone (if any),
-    //     // use slow search only for shared points.
-    //     forAll(curPointLabels, pointi)
-    //     {
-    //         label curPoint = curPointLabels[pointi];
+        // Use the pointToZone map to find out the single zone (if any),
+        // use slow search only for shared points.
+        forAll(curPointLabels, pointi)
+        {
+            label curPoint = curPointLabels[pointi];
 
-    //         label zonei = pointToZone[curPoint];
+            label zonei = pointToZone[curPoint];
 
-    //         if (zonei >= 0)
-    //         {
-    //             // Single zone.
-    //             zonePoints[zonei].append(pointi);
-    //         }
-    //         else if (zonei == -2)
-    //         {
-    //             // Multiple zones. Lookup.
-    //             forAll(pz, zonei)
-    //             {
-    //                 label index = pz[zonei].whichPoint(curPoint);
+            if (zonei >= 0)
+            {
+                // Single zone.
+                zonePoints[zonei].append(pointi);
+            }
+            else if (zonei == -2)
+            {
+                // Multiple zones. Lookup.
+                forAll(pz, zonei)
+                {
+                    label index = pz[zonei].whichPoint(curPoint);
 
-    //                 if (index != -1)
-    //                 {
-    //                     zonePoints[zonei].append(pointi);
-    //                 }
-    //             }
-    //         }
-    //     }
+                    if (index != -1)
+                    {
+                        zonePoints[zonei].append(pointi);
+                    }
+                }
+            }
+        }
 
-    //     procMesh.pointZones().clearAddressing();
-    //     procMesh.pointZones().setSize(zonePoints.size());
-    //     forAll(zonePoints, zonei)
-    //     {
-    //         procMesh.pointZones().set
-    //         (
-    //             zonei,
-    //             pz[zonei].clone
-    //             (
-    //                 procMesh.pointZones(),
-    //                 zonei,
-    //                 zonePoints[zonei].shrink()
-    //             )
-    //         );
-    //     }
+        procMesh.pointZones().clearAddressing();
+        procMesh.pointZones().setSize(zonePoints.size());
+        forAll(zonePoints, zonei)
+        {
+            procMesh.pointZones().set
+            (
+                zonei,
+                pz[zonei].clone
+                (
+                    procMesh.pointZones(),
+                    zonei,
+                    zonePoints[zonei].shrink()
+                )
+            );
+        }
 
-    //     if (pz.size())
-    //     {
-    //         // Force writing on all processors
-    //         procMesh.pointZones().writeOpt(IOobject::AUTO_WRITE);
-    //     }
+        if (pz.size())
+        {
+            // Force writing on all processors
+            procMesh.pointZones().writeOpt(IOobject::AUTO_WRITE);
+        }
     }
 
+    // Face zones
+    {
+        const faceZoneMesh& fz = faceZones();
+
+        // Go through all the zoned face and find out if they
+        // belong to a zone.  If so, add it to the zone as
+        // necessary
+        List<DynamicList<label>> zoneFaces(fz.size());
+        List<DynamicList<bool>> zoneFaceFlips(fz.size());
+
+        // Estimate size
+        forAll(zoneFaces, zonei)
+        {
+            label procSize = fz[zonei].size() / nProcs_;
+
+            zoneFaces[zonei].setCapacity(procSize);
+            zoneFaceFlips[zonei].setCapacity(procSize);
+        }
+
+        // Go through all the zoned faces and find out if they
+        // belong to a zone.  If so, add it to the zone as
+        // necessary
+        forAll(curFaceLabels, facei)
+        {
+            // Remember to decrement the index by one (turning index)
+            //
+            label curF = mag(curFaceLabels[facei]) - 1;
+
+            label zonei = faceToZone[curF];
+
+            if (zonei >= 0)
+            {
+                // Single zone. Add the face
+                zoneFaces[zonei].append(facei);
+
+                label index = fz[zonei].whichFace(curF);
+
+                bool flip = fz[zonei].flipMap()[index];
+
+                if (curFaceLabels[facei] < 0)
+                {
+                    flip = !flip;
+                }
+
+                zoneFaceFlips[zonei].append(flip);
+            }
+            else if (zonei == -2)
+            {
+                // Multiple zones. Lookup.
+                forAll(fz, zonei)
+                {
+                    label index = fz[zonei].whichFace(curF);
+
+                    if (index != -1)
+                    {
+                        zoneFaces[zonei].append(facei);
+
+                        bool flip = fz[zonei].flipMap()[index];
+
+                        if (curFaceLabels[facei] < 0)
+                        {
+                            flip = !flip;
+                        }
+
+                        zoneFaceFlips[zonei].append(flip);
+                    }
+                }
+            }
+        }
+
+        procMesh.faceZones().clearAddressing();
+        procMesh.faceZones().setSize(zoneFaces.size());
+        forAll(zoneFaces, zonei)
+        {
+            procMesh.faceZones().set
+            (
+                zonei,
+                fz[zonei].clone
+                (
+                    zoneFaces[zonei].shrink(),          // addressing
+                    zoneFaceFlips[zonei].shrink(),      // flipmap
+                    zonei,
+                    procMesh.faceZones()
+                )
+            );
+        }
+
+        if (fz.size())
+        {
+            // Force writing on all processors
+            procMesh.faceZones().writeOpt(IOobject::AUTO_WRITE);
+        }
+    }
+
+    // Cell zones
+    {
+        const cellZoneMesh& cz = cellZones();
+
+        // Go through all the zoned cells and find out if they
+        // belong to a zone.  If so, add it to the zone as
+        // necessary
+        List<DynamicList<label>> zoneCells(cz.size());
+
+        // Estimate size
+        forAll(zoneCells, zonei)
+        {
+            zoneCells[zonei].setCapacity(cz[zonei].size()/nProcs_);
+        }
+
+        forAll(curCellLabels, celli)
+        {
+            label curCelli = curCellLabels[celli];
+
+            label zonei = cellToZone[curCelli];
+
+            if (zonei >= 0)
+            {
+                // Single zone.
+                zoneCells[zonei].append(celli);
+            }
+            else if (zonei == -2)
+            {
+                // Multiple zones. Lookup.
+                forAll(cz, zonei)
+                {
+                    label index = cz[zonei].whichCell(curCelli);
+
+                    if (index != -1)
+                    {
+                        zoneCells[zonei].append(celli);
+                    }
+                }
+            }
+        }
+
+        procMesh.cellZones().clearAddressing();
+        procMesh.cellZones().setSize(zoneCells.size());
+        forAll(zoneCells, zonei)
+        {
+            procMesh.cellZones().set
+            (
+                zonei,
+                cz[zonei].clone
+                (
+                    zoneCells[zonei].shrink(),
+                    zonei,
+                    procMesh.cellZones()
+                )
+            );
+        }
+
+        if (cz.size())
+        {
+            // Force writing on all processors
+            procMesh.cellZones().writeOpt(IOobject::AUTO_WRITE);
+        }
+    }
+
+    // Set the precision of the points data to be min 10
+    IOstream::defaultPrecision(max(10u, IOstream::defaultPrecision()));
+
+    procMesh.write();
     
+    // Write points if pointsInstance differing from facesInstance
+    if (facesInstancePointsPtr_)
+    {
+        pointIOField pointsInstancePoints
+        (
+            IOobject
+            (
+                "points",
+                pointsInstance(),
+                polyMesh::meshSubDir,
+                procMesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
+            std::move(procPoints)
+        );
+        pointsInstancePoints.write();
+    }
+
+    // Statistics
+    Pout << nl << "Processor " << procNo_;
+
+    if (procMesh.nCells())
+    {
+        Pout << nl << "    ";
+    }
+    else
+    {
+        Pout << ": ";
+    }
+
+    Pout << "Number of cells = " << procMesh.nCells() << nl;
+
+    maxProcCells = max(maxProcCells, procMesh.nCells());
+
+    label nBoundaryFaces = 0;
+    label nProcPatches = 0;
+    label nProcFaces = 0;
+
+    forAll(procMesh.boundaryMesh(), patchi)
+    {
+        if (isA<processorPolyPatch>(procMesh.boundaryMesh()[patchi]))
+        {
+            const processorPolyPatch& ppp =
+            refCast<const processorPolyPatch>
+            (
+                procMesh.boundaryMesh()[patchi]
+            );
+
+            Pout << "    Number of faces shared with processor "
+                << ppp.neighbProcNo() << " = " << ppp.size() << endl;
+
+            nProcPatches++;
+            nProcFaces += ppp.size();
+        }
+        else
+        {
+            nBoundaryFaces += procMesh.boundaryMesh()[patchi].size();
+        }
+    }
+
+    if (procMesh.nCells() && (nBoundaryFaces || nProcFaces))
+    {
+        Pout << "    Number of processor patches = " << nProcPatches << nl
+            << "    Number of processor faces = " << nProcFaces << nl
+            << "    Number of boundary faces = " << nBoundaryFaces << nl;
+    }
+
+    totProcFaces += nProcFaces;
+    totProcPatches += nProcPatches;
+    maxProcPatches = max(maxProcPatches, nProcPatches);
+    maxProcFaces = max(maxProcFaces, nProcFaces);
+
+    // create and write the addressing information
+    labelIOList pointProcAddressing
+    (
+        IOobject
+        (
+            "pointProcAddressing",
+            procMesh.facesInstance(),
+            procMesh.meshSubDir,
+            procMesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        procPointAddressing_
+    );
+    pointProcAddressing.write();
+
+    labelIOList faceProcAddressing
+    (
+        IOobject
+        (
+            "faceProcAddressing",
+            procMesh.facesInstance(),
+            procMesh.meshSubDir,
+            procMesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        procFaceAddressing_
+    );
+    faceProcAddressing.write();
+
+    labelIOList cellProcAddressing
+    (
+        IOobject
+        (
+            "cellProcAddressing",
+            procMesh.facesInstance(),
+            procMesh.meshSubDir,
+            procMesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        procCellAddressing_
+    );
+    cellProcAddressing.write();
+
+    // Write patch map for backwards compatibility.
+    // (= identity map for original patches, -1 for processor patches)
+    label nMeshPatches = curPatchSizes.size();
+    labelList procBoundaryAddressing(identity(nMeshPatches));
+    procBoundaryAddressing.setSize(nMeshPatches+nProcPatches, -1);
+
+    labelIOList boundaryProcAddressing
+    (
+        IOobject
+        (
+            "boundaryProcAddressing",
+            procMesh.facesInstance(),
+            procMesh.meshSubDir,
+            procMesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        procBoundaryAddressing
+    );
+    boundaryProcAddressing.write();
+
+    /*
+        Below info might be wrong since each processor holds different data.
+        Since it is not crucial, it is skipped.
+    */
+    
+    // scalar avgProcCells = scalar(nCells())/nProcs_;
+    // scalar avgProcPatches = scalar(totProcPatches)/nProcs_;
+    // scalar avgProcFaces = scalar(totProcFaces)/nProcs_;
+
+    // // In case of all faces on one processor. Just to avoid division by 0.
+    // if (totProcPatches == 0)
+    // {
+    //     avgProcPatches = 1;
+    // }
+    // if (totProcFaces == 0)
+    // {
+    //     avgProcFaces = 1;
+    // }
+
+    // Info<< nl
+    //     << "Number of processor faces = " << totProcFaces/2 << nl
+    //     << "Max number of cells = " << maxProcCells
+    //     << " (" << 100.0*(maxProcCells-avgProcCells)/avgProcCells
+    //     << "% above average " << avgProcCells << ")" << nl
+    //     << "Max number of processor patches = " << maxProcPatches
+    //     << " (" << 100.0*(maxProcPatches-avgProcPatches)/avgProcPatches
+    //     << "% above average " << avgProcPatches << ")" << nl
+    //     << "Max number of faces between processors = " << maxProcFaces
+    //     << " (" << 100.0*(maxProcFaces-avgProcFaces)/avgProcFaces
+    //     << "% above average " << avgProcFaces << ")" << nl
+    //     << endl;
 
     return true;
 }

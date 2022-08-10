@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     );
 
     mesh.decomposeMesh();
-    // mesh.writeDecomposition();
+    mesh.writeDecomposition();
 
     return 0;
 }
