@@ -70,11 +70,8 @@ Foam::parallelDomainDecomposition::parallelDomainDecomposition(
               : nullptr),
       procNo_(
           procNo),
-      nProcs_(nProcs),
-      cellToProc_(4250)
-{
-    // Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
-}
+      nProcs_(nProcs)
+{}
 
 // A list compare binary predicate for normal sort by vector component
 struct vectorLessOp
@@ -260,9 +257,6 @@ Foam::labelList Foam::parallelDomainDecomposition::simpleDecomposition(const poi
         }
     }
     Pstream::scatter(finalVersion);
-    
-    // outputFilePtr.reset(new OFstream(outputDir/"finalVersion"));
-    // outputFilePtr() << finalVersion << endl;
 
     return finalVersion;
 }
@@ -272,57 +266,19 @@ void Foam::parallelDomainDecomposition::distributeCells()
     Info<< "\nCalculating distribution of cells" << endl;
 
     cpuTime decompositionTime;
-    const decompositionModel& method = decompositionModel::New
-    (
-        *this
-    );
-
-    word weightName;
-    scalarField cellWeights;
-
-    if (method.readIfPresent("weightField", weightName))
-    {
-        volScalarField weights
-        (
-            IOobject
-            (
-                weightName,
-                time().timeName(),
-                *this,
-                IOobject::MUST_READ,
-                IOobject::NO_WRITE
-            ),
-            *this
-        );
-        cellWeights = weights.primitiveField();
-    }
 
     cellToProc_ = simpleDecomposition(this->cellCentres());
 
-    Info<< "\nFinished decomposition in "
+    Pout<< "\nFinished decomposition for process " << procNo_ << "in "
         << decompositionTime.elapsedCpuTime()
         << " s" << endl;
 }
 
-/*
-    TODO: there is a subtle bug that I could not fix yet.
-    To understand the bug, run decomposePar and parallelDecompose.
-    Then compare procCellAddressing_
-*/
 // assign each cell to its corresponding process.
-// note: the code is copied from invertOneToMany method and changed.
 Foam::labelList Foam::parallelDomainDecomposition::assignCellsToProc(
     const labelUList& map
 )
 {
-    // autoPtr<OFstream> outputFilePtr;
-    // fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
-    // mkDir(path);
-    // outputFilePtr.reset(new OFstream(path/"cellToProc_"));
-    // outputFilePtr() << map << endl;
-
-    // cellToProc_ comes the same for each process. Tested and verified.
-
     // each process will hold the information of how many cells that they have
     label procCellSize(0);
     for (const label newIdx : map)
@@ -514,16 +470,7 @@ void Foam::parallelDomainDecomposition::mark
 
 void Foam::parallelDomainDecomposition::decomposeMesh()
 {
-    fileName path = cwd()/"simpleDecomp";
-    mkDir(path);
-    autoPtr<OFstream> outputFilePtr;
-
     distributeCells();
-
-    outputFilePtr.reset(new OFstream(path/"cellToProc_"));
-    outputFilePtr() << cellToProc_ << endl;
-
-    // cellToProc_ is tested and verified. Yay!
 
     Info<< "\nCalculating original mesh data" << endl;
 
@@ -536,28 +483,12 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     Info<< "\nDistributing cells to processors" << endl;
     procCellAddressing_ = assignCellsToProc(cellToProc_);
 
-    // procCellAddressing_ is working. Tested and verified.
-
-    // test code
-    // labelListList combined(Pstream::nProcs());
-    // combined[Pstream::myProcNo()] = procCellAddressing_;
-
-    // Pstream::gatherList(combined);
-
-    // if (Pstream::master())
-    // {
-    //     outputFilePtr.reset(new OFstream(path/"procCellAddressing_"));
-    //     outputFilePtr() << combined << endl;
-    // }
-
     Info<< "\nDistributing faces to processors" << endl;
 
     // Loop through all internal faces and decide which processor they belong to
     // First visit all internal faces. If cells at both sides belong to the
     // same processor, the face is an internal face. If they are different,
     // it belongs to both processors.
-
-    // procFaceAddressing_.setSize(nProcs_);
 
     // Internal faces
     forAll(neighbour, facei)
@@ -638,13 +569,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         }
     }
 
-    // BELOW ARE TESTED AND VERIFIED
-    /*
-        procFaceAddressing_
-        procPatchStartIndex_
-        procFaceAddressing_
-    */
-
     // Done internal bits of the new mesh and the ordinary patches.
 
     // Below two lists are serial!!
@@ -684,8 +608,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     }
     Pstream::scatter(procNbrToInterPatch);
     Pstream::scatter(interPatchFaces);
-
-    // procNbrToInterPatch and interPatchFaces is working correctly!
 
     // Add the proper processor faces to the sub information. For faces
     // originating from internal faces this is always -1.
@@ -766,8 +688,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         greaterOp<label>()
     );
 
-    // I think procNbrToInterPatch is working correctly. So, I did not test it.
-
     // Sort inter-proc patch by neighbour
     labelList order;
     label nInterfaces2 = procNbrToInterPatch[procNo_].size();
@@ -825,16 +745,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     curInterPatchFaces.clearStorage();
     procFaceAddressing_.shrink();
 
-    // below are working correctly:
-
-    /*
-        procNeighbourProcessors_
-        procProcessorPatchSize_
-        procNbrToInterPatch
-        procProcessorPatchSubPatchIDs_
-        procProcessorPatchSubPatchStarts_  
-    */
-
     Info<< "\nDistributing points to processors" << endl;
     // For every processor, loop through the list of faces for the processor.
     // For every face, loop through the list of points and mark the point as
@@ -853,8 +763,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         pointsInUse.set(facePoints);
     }
     procPointAddressing_ = pointsInUse.sortedToc();
-
-    // procPointAddressing_ is working as well.
 }
 
 bool Foam::parallelDomainDecomposition::writeDecomposition()
@@ -1568,7 +1476,7 @@ bool Foam::parallelDomainDecomposition::writeDecomposition()
 
     /*
         Below info might be wrong since each processor holds different data.
-        Since it is not crucial, it is skipped.
+        Since it is not crucial, it was not attached important into.
     */
     
     // scalar avgProcCells = scalar(nCells())/nProcs_;

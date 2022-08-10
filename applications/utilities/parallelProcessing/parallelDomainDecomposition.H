@@ -58,7 +58,6 @@ namespace Foam
           public simpleGeomDecomp
     {
     private:
-        //- Optional: points at the facesInstance
         autoPtr<pointIOField> facesInstancePointsPtr_;
         label procNo_;
         label nProcs_;
@@ -119,6 +118,8 @@ namespace Foam
         void decomposeMesh();
         bool writeDecomposition();
 
+        inline label nProcs() { return nProcs_; }
+        inline label procNo() { return procNo_; }
     };
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
