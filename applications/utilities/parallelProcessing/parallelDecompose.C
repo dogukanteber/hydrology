@@ -68,6 +68,38 @@ int main(int argc, char* argv[]) {
     #include "createTime.H"
     runTime.functionObjects().off();  // Extra safety?
 
+    labelList myList(8);
+
+    forAll(myList, i)
+    {
+        myList[i] = 0;
+    }
+
+    myList[Pstream::myProcNo() * 2] = Pstream::myProcNo();
+    myList[Pstream::myProcNo() * 2 + 1] = Pstream::myProcNo();
+
+    if (Pstream::master())
+    {
+        UPstream::rangeType procs = Pstream::subProcs();
+        forAll(procs, i)
+        {
+            IPstream ips(Pstream::commsTypes::blocking, procs[i]);
+            ips >> myList[(i + 1) * 2];
+            ips >> myList[(i + 1) * 2 + 1];
+        }
+    }
+    else
+    {
+        OPstream ops(Pstream::commsTypes::blocking, 0);
+        ops << myList[Pstream::myProcNo() * 2];
+        ops << myList[Pstream::myProcNo() * 2 + 1];
+    }
+
+    forAll(myList, i)
+    {
+        Info << myList[i] << endl;
+    }
+
     // get custom decomposeParDict location
     fileName decompDictFile(args.getOrDefault<fileName>("decomposeParDict", ""));
     if (!decompDictFile.empty() && !decompDictFile.isAbsolute())
@@ -105,7 +137,7 @@ int main(int argc, char* argv[]) {
     // get number of processes from the dict
     scalar nProc(readScalar(decompDict.lookup("numberOfSubdomains")));
 
-    Info<< "Create undecomposed database"<< nl << endl;
+    // Info<< "Create undecomposed database"<< nl << endl;
     Time baseRunTime
     (
         runTime.controlDict(),
@@ -116,7 +148,7 @@ int main(int argc, char* argv[]) {
         false                   // enableFunctionObjects
     );
 
-    Pout << "Create mesh for process " << Pstream::myProcNo() << endl;
+    // Pout << "Create mesh for process " << Pstream::myProcNo() << endl;
     parallelDomainDecomposition mesh
     (
         IOobject
@@ -128,12 +160,13 @@ int main(int argc, char* argv[]) {
             IOobject::NO_WRITE,
             false
         ),
+        decompDict,
         Pstream::myProcNo(),
         Pstream::nProcs()
     );
 
     mesh.decomposeMesh();
-    mesh.writeDecomposition();
+    // mesh.writeDecomposition();
 
     return 0;
 }

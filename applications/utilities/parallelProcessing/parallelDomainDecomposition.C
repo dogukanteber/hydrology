@@ -34,14 +34,28 @@ License
 #include "cyclicPolyPatch.H"
 #include "IOstreams.H"
 #include "bitSet.H"
+#include "dictionary.H"
+#include "labelIOList.H"
+#include "OSspecific.H"
+#include "Map.H"
+#include "DynamicList.H"
+#include "fvFieldDecomposer.H"
+#include "IOobjectList.H"
+#include "cellSet.H"
+#include "faceSet.H"
+#include "pointSet.H"
+#include "OPstream.H"
+#include "IPstream.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::parallelDomainDecomposition::parallelDomainDecomposition(
     const IOobject &io,
+    const IOdictionary& dict,
     label procNo,
     label nProcs)
     : fvMesh(io),
+      simpleGeomDecomp(dict),
       facesInstancePointsPtr_(
           pointsInstance() != facesInstance()
               ? new pointIOField(
@@ -56,12 +70,202 @@ Foam::parallelDomainDecomposition::parallelDomainDecomposition(
               : nullptr),
       procNo_(
           procNo),
-      nProcs_(nProcs)
+      nProcs_(nProcs),
+      cellToProc_(4250)
 {
-    Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
+    // Pout << "parallelDomainDecomposition constructor is called for process " << procNo_ << endl;
 }
 
+// A list compare binary predicate for normal sort by vector component
+struct vectorLessOp
+{
+    const UList<vector>& values;
+    direction sortCmpt;
+
+    vectorLessOp(const UList<vector>& list, direction cmpt = vector::X)
+    :
+        values(list),
+        sortCmpt(cmpt)
+    {}
+
+    void setComponent(direction cmpt)
+    {
+        sortCmpt = cmpt;
+    }
+
+    bool operator()(const label a, const label b) const
+    {
+        return values[a][sortCmpt] < values[b][sortCmpt];
+    }
+};
+
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+/*
+    !!! CAUTION !!!
+    This method is tested only when nProcGroup == nProcs and nProcGroup == 1
+    It is left this way because the time strict
+*/
+std::pair<label, label> Foam::parallelDomainDecomposition::assignToProcessorGroup(
+    labelList& processorGroup,
+    const label nProcGroup
+)
+{
+    const label nProcs = Pstream::nProcs();
+    const label procNo = Pstream::myProcNo();
+    const label totalCells = processorGroup.size();
+
+    std::pair<label, label> range;
+    label startIndex = 0, endIndex = 0;
+    if (nProcs == nProcGroup)
+    {
+        // distribute cells evenly among each process
+        label cellsPerProc = totalCells / nProcs;
+        label remainder = totalCells % nProcs;
+        if (procNo < remainder)
+        {
+            startIndex = procNo * (cellsPerProc + 1);
+            endIndex = startIndex + (cellsPerProc + 1);
+        }
+        else
+        {
+            startIndex = procNo * cellsPerProc + remainder;
+            endIndex = startIndex + cellsPerProc;
+        }
+        range.first = startIndex;
+        range.second = endIndex;
+        // Pout << startIndex << " - " << endIndex << endl;
+        for (; startIndex < endIndex; startIndex++)
+        {
+            processorGroup[startIndex] = procNo;
+        }
+    }
+    else
+    {
+        // when nProcGroups is 1, distribute the workload among processes
+        label cellsPerProc = totalCells / nProcs;
+        label remainder = totalCells % nProcs;
+        if (procNo < remainder)
+        {
+            startIndex = procNo * (cellsPerProc + 1);
+            endIndex = startIndex + (cellsPerProc + 1);
+        }
+        else
+        {
+            startIndex = procNo * cellsPerProc + remainder;
+            endIndex = startIndex + cellsPerProc;
+        }
+        range.first = startIndex;
+        range.second = endIndex;
+        for (; startIndex < endIndex; startIndex++)
+        {
+            processorGroup[startIndex] = 0;
+        }
+    }
+
+    return range;
+}
+
+Foam::labelList Foam::parallelDomainDecomposition::simpleDecomposition(const pointField& cellPoints)
+{
+    // fileName outputDir = cwd()/"simpleDecomp";
+    // mkDir(outputDir);
+    // autoPtr<OFstream> outputFilePtr;
+
+    labelList finalDecomp(cellPoints.size(), -1);
+
+    labelList processorGroups(cellPoints.size());
+
+    labelList pointIndices(identity(cellPoints.size()));
+
+    const pointField rotatedPoints(adjustPoints(cellPoints));
+
+    vectorLessOp sorter(rotatedPoints);
+
+    sorter.setComponent(vector::X);
+    Foam::sort(pointIndices, sorter);
+
+    std::pair<label, label> range = assignToProcessorGroup(processorGroups, n_.x());
+
+    for (label i=range.first; i<range.second; i++)
+    {
+        finalDecomp[pointIndices[i]] = processorGroups[i];
+    }
+
+    sorter.setComponent(vector::Y);
+    Foam::sort(pointIndices, sorter);
+
+    range = assignToProcessorGroup(processorGroups, n_.y());
+
+    for (label i=range.first; i<range.second; i++)
+    {
+        finalDecomp[pointIndices[i]] += n_.x()*processorGroups[i];
+    }
+
+    sorter.setComponent(vector::Z);
+    Foam::sort(pointIndices, sorter);
+
+    range = assignToProcessorGroup(processorGroups, n_.z());
+
+    for (label i=range.first; i<range.second; i++)
+    {
+        finalDecomp[pointIndices[i]] += n_.x()*n_.y()*processorGroups[i];
+    }
+
+    labelListList n_finalDecomp(UPstream::nProcs());
+    n_finalDecomp[UPstream::myProcNo()] = finalDecomp;
+    Pstream::gatherList(n_finalDecomp);
+
+    labelList combined(
+        ListListOps::combine<labelList>(n_finalDecomp, accessOp<labelList>())
+    );
+
+    labelList finalVersion(cellPoints.size());
+    if (Pstream::master())
+    {
+        const label meshSize = cellPoints.size();
+        const label totalMeshSize = cellPoints.size() * Pstream::nProcs();
+
+        label start = 0;
+        label end = totalMeshSize;
+        label index = 0;
+        while ( start < end )
+        {
+            label currentElement = combined[start];
+            label invalid(-1);
+            while (currentElement != invalid)
+            {
+                finalVersion[index] = currentElement;
+                index++;
+                start++;
+                // Info << start << endl;
+                if (start == end)
+                {
+                    break;
+                }
+                currentElement = combined[start];
+            }
+            if (start == end)
+            {
+                break;
+            }
+            if (finalVersion[index-1] == Pstream::lastSlave())
+            {
+                start = start - (meshSize * (Pstream::nProcs() - 1));
+            }
+            else
+            {
+                start += meshSize;
+            }
+        }
+    }
+    Pstream::scatter(finalVersion);
+    
+    // outputFilePtr.reset(new OFstream(outputDir/"finalVersion"));
+    // outputFilePtr() << finalVersion << endl;
+
+    return finalVersion;
+}
 
 void Foam::parallelDomainDecomposition::distributeCells()
 {
@@ -93,7 +297,7 @@ void Foam::parallelDomainDecomposition::distributeCells()
         cellWeights = weights.primitiveField();
     }
 
-    cellToProc_ = method.decomposer().decompose(*this, cellWeights);
+    cellToProc_ = simpleDecomposition(this->cellCentres());
 
     Info<< "\nFinished decomposition in "
         << decompositionTime.elapsedCpuTime()
@@ -111,34 +315,22 @@ Foam::labelList Foam::parallelDomainDecomposition::assignCellsToProc(
     const labelUList& map
 )
 {
-    label len(4);
-    labelList sizes(len, Zero);
-
-    for (const label newIdx : map)
-    {
-        if (newIdx >= 0)
-        {
-            ++sizes[newIdx];
-        }
-    }
-
-    Info << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
-    Pout << "P: " << sizes[0] << tab << sizes[1] << tab << sizes[2] << tab << sizes[3] << endl;
     // autoPtr<OFstream> outputFilePtr;
     // fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
-    // outputFilePtr.reset(new OFstream(path/"assingCellsToProc"));
+    // mkDir(path);
+    // outputFilePtr.reset(new OFstream(path/"cellToProc_"));
+    // outputFilePtr() << map << endl;
+
+    // cellToProc_ comes the same for each process. Tested and verified.
+
     // each process will hold the information of how many cells that they have
     label procCellSize(0);
-    // label count(1);
     for (const label newIdx : map)
     {
-        // outputFilePtr() << "count : " << count << tab << "newIdx : " << newIdx << tab;
         if (newIdx == procNo_)
         {
             ++procCellSize;
-            // outputFilePtr() << "Inside the if. newIdx : " << newIdx << " procNo : " << procNo_ << " procCellSize : " << procCellSize << tab << endl << endl;
         }
-        // count++;
     }
 
     labelList inverse(procCellSize);
@@ -251,17 +443,20 @@ void Foam::parallelDomainDecomposition::processInterCyclics
             {
                 const label ownerProc = cellToProc_[patchFaceCells[facei]];
                 const label nbrProc = cellToProc_[nbrPatchFaceCells[facei]];
-                if (bop(ownerProc, nbrProc))
+                if (ownerProc == procNo_)
                 {
-                    // inter - processor patch face found.
-                    addInterProcFace
-                    (
-                        pp.start()+facei,
-                        ownerProc,
-                        nbrProc,
-                        procNbrToInterPatch,
-                        interPatchFaces
-                    );
+                    if (bop(ownerProc, nbrProc))
+                    {
+                        // inter - processor patch face found.
+                        addInterProcFace
+                        (
+                            pp.start()+facei,
+                            ownerProc,
+                            nbrProc,
+                            procNbrToInterPatch,
+                            interPatchFaces
+                        );
+                    }
                 }
             }
 
@@ -293,12 +488,42 @@ void Foam::parallelDomainDecomposition::append(labelList& lst, const label elem)
     lst[sz] = elem;
 }
 
+void Foam::parallelDomainDecomposition::mark
+(
+    const labelList& zoneElems,
+    const label zoneI,
+    labelList& elementToZone
+)
+{
+    for (const label pointi : zoneElems)
+    {
+        if (elementToZone[pointi] == -1)
+        {
+            // First occurrence
+            elementToZone[pointi] = zoneI;
+        }
+        else if (elementToZone[pointi] >= 0)
+        {
+            // Multiple zones
+            elementToZone[pointi] = -2;
+        }
+    }
+}
+
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 void Foam::parallelDomainDecomposition::decomposeMesh()
 {
-    Pout << "decomposeMesh method is called" << endl;
+    fileName path = cwd()/"simpleDecomp";
+    mkDir(path);
+    autoPtr<OFstream> outputFilePtr;
+
     distributeCells();
+
+    outputFilePtr.reset(new OFstream(path/"cellToProc_"));
+    outputFilePtr() << cellToProc_ << endl;
+
+    // cellToProc_ is tested and verified. Yay!
 
     Info<< "\nCalculating original mesh data" << endl;
 
@@ -308,15 +533,22 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     const labelList& owner = faceOwner();
     const labelList& neighbour = faceNeighbour();
 
-    fileName path("/home/dogukan/Documents/hydrology/tutorials/permaFoam/demoCase/debugprocessor" + Foam::name(procNo_));
-    mkDir(path);
-    autoPtr<OFstream> outputFilePtr;
-
     Info<< "\nDistributing cells to processors" << endl;
     procCellAddressing_ = assignCellsToProc(cellToProc_);
 
-    outputFilePtr.reset(new OFstream(path/"procCellAddressing_"));
-    outputFilePtr() << procCellAddressing_ << endl;
+    // procCellAddressing_ is working. Tested and verified.
+
+    // test code
+    // labelListList combined(Pstream::nProcs());
+    // combined[Pstream::myProcNo()] = procCellAddressing_;
+
+    // Pstream::gatherList(combined);
+
+    // if (Pstream::master())
+    // {
+    //     outputFilePtr.reset(new OFstream(path/"procCellAddressing_"));
+    //     outputFilePtr() << combined << endl;
+    // }
 
     Info<< "\nDistributing faces to processors" << endl;
 
@@ -406,14 +638,12 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         }
     }
 
-    outputFilePtr.reset(new OFstream(path/"procPatchSize_"));
-    outputFilePtr() << procPatchSize_ << endl;
-    
-    outputFilePtr.reset(new OFstream(path/"procPatchStartIndex_"));
-    outputFilePtr() << procPatchStartIndex_ << endl;
-
-    outputFilePtr.reset(new OFstream(path/"procFaceAddressing_"));
-    outputFilePtr() << procFaceAddressing_ << endl;
+    // BELOW ARE TESTED AND VERIFIED
+    /*
+        procFaceAddressing_
+        procPatchStartIndex_
+        procFaceAddressing_
+    */
 
     // Done internal bits of the new mesh and the ordinary patches.
 
@@ -425,35 +655,37 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     // Per processor the faces per inter-processor patch
     List<DynamicList<DynamicList<label>>> interPatchFaces(nProcs_);
 
-    // Processor boundaries from internal faces
-    forAll(neighbour, facei)
+    // below can be improved in terms of perfomance
+    if (Pstream::master())
     {
-        label ownerProc = cellToProc_[owner[facei]];
-        label nbrProc = cellToProc_[neighbour[facei]];
-
-        if (ownerProc == procNo_)
+        // Processor boundaries from internal faces
+        forAll(neighbour, facei)
         {
-            if (ownerProc != nbrProc)
-            {
-                // inter - processor patch face found.
-                addInterProcFace
-                (
-                    facei,
-                    ownerProc,
-                    nbrProc,
+            label ownerProc = cellToProc_[owner[facei]];
+            label nbrProc = cellToProc_[neighbour[facei]];
 
-                    procNbrToInterPatch,
-                    interPatchFaces
-                );
+            // if (ownerProc == procNo_)
+            {
+                if (ownerProc != nbrProc)
+                {
+                    // inter - processor patch face found.
+                    addInterProcFace
+                    (
+                        facei,
+                        ownerProc,
+                        nbrProc,
+
+                        procNbrToInterPatch,
+                        interPatchFaces
+                    );
+                }
             }
         }
     }
+    Pstream::scatter(procNbrToInterPatch);
+    Pstream::scatter(interPatchFaces);
 
-    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
-    outputFilePtr() << procNbrToInterPatch << endl;
-
-    outputFilePtr.reset(new OFstream(path/"interPatchFaces"));
-    outputFilePtr() << interPatchFaces << endl;
+    // procNbrToInterPatch and interPatchFaces is working correctly!
 
     // Add the proper processor faces to the sub information. For faces
     // originating from internal faces this is always -1.
@@ -465,11 +697,7 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     subPatchIDs.setSize(nInterfaces, labelList(1, label(-1)));
     subPatchStarts.setSize(nInterfaces, labelList(1, Zero));
 
-    outputFilePtr.reset(new OFstream(path/"subPatchIDs"));
-    outputFilePtr() << subPatchIDs << endl;
-
-    outputFilePtr.reset(new OFstream(path/"subPatchStarts"));
-    outputFilePtr() << subPatchStarts << endl;
+    // subPatchIDs and subPatchStarts are working correctly!
 
     // Special handling needed for the case that multiple processor cyclic
     // patches are created on each local processor domain, e.g. if a 3x3 case
@@ -538,8 +766,7 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         greaterOp<label>()
     );
 
-    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
-    outputFilePtr() << procNbrToInterPatch << endl;
+    // I think procNbrToInterPatch is working correctly. So, I did not test it.
 
     // Sort inter-proc patch by neighbour
     labelList order;
@@ -571,7 +798,6 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         procProcessorPatchStartIndex_[i] =
             procFaceAddressing_.size();
 
-        // TODO
         // Add size as last element to substarts and transfer
         append
         (
@@ -596,23 +822,18 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
         }
         interPatchFaces.clearStorage();
     }
-        curInterPatchFaces.clearStorage();
-        procFaceAddressing_.shrink();
+    curInterPatchFaces.clearStorage();
+    procFaceAddressing_.shrink();
 
-    outputFilePtr.reset(new OFstream(path/"procNeighbourProcessors_"));
-    outputFilePtr() << procNeighbourProcessors_ << endl;
+    // below are working correctly:
 
-    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSize_"));
-    outputFilePtr() << procProcessorPatchSize_ << endl;
-
-    outputFilePtr.reset(new OFstream(path/"procNbrToInterPatch"));
-    outputFilePtr() << procNbrToInterPatch << endl;
-
-    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSubPatchIDs_"));
-    outputFilePtr() << procProcessorPatchSubPatchIDs_ << endl;
-
-    outputFilePtr.reset(new OFstream(path/"procProcessorPatchSubPatchStarts_"));
-    outputFilePtr() << procProcessorPatchSubPatchStarts_ << endl;
+    /*
+        procNeighbourProcessors_
+        procProcessorPatchSize_
+        procNbrToInterPatch
+        procProcessorPatchSubPatchIDs_
+        procProcessorPatchSubPatchStarts_  
+    */
 
     Info<< "\nDistributing points to processors" << endl;
     // For every processor, loop through the list of faces for the processor.
@@ -633,14 +854,420 @@ void Foam::parallelDomainDecomposition::decomposeMesh()
     }
     procPointAddressing_ = pointsInUse.sortedToc();
 
-    outputFilePtr.reset(new OFstream(path/"procPointAddressing_"));
-    outputFilePtr() << procPointAddressing_ << endl;
+    // procPointAddressing_ is working as well.
 }
 
 bool Foam::parallelDomainDecomposition::writeDecomposition()
 {
-    Pout << "writeDecomposition is called" << endl;
-    Pout << "\nCalculating original mesh data for process " << procNo_ << endl;
+    Info<< "\nConstructing processor meshes" << endl;
+
+    // Mark point/faces/cells that are in zones.
+    // -1   : not in zone
+    // -2   : in multiple zones
+    // >= 0 : in single given zone
+    // This will give direct lookup of elements that are in a single zone
+    // and we'll only have to revert back to searching through all zones
+    // for the duplicate elements
+
+    // contains -1
+    // Point zones
+    labelList pointToZone(points().size(), -1);
+
+    forAll(pointZones(), zonei)
+    {
+        mark(pointZones()[zonei], zonei, pointToZone);
+    }
+
+    // contains -1
+    // Face zones
+    labelList faceToZone(faces().size(), -1);
+
+    forAll(faceZones(), zonei)
+    {
+        mark(faceZones()[zonei], zonei, faceToZone);
+    }
+
+    // contains -1
+    // Cell zones
+    labelList cellToZone(nCells(), -1);
+
+    forAll(cellZones(), zonei)
+    {
+        mark(cellZones()[zonei], zonei, cellToZone);
+    }
+
+    PtrList<const cellSet> cellSets;
+    PtrList<const faceSet> faceSets;
+    PtrList<const pointSet> pointSets;
+
+    label maxProcCells = 0;
+    label totProcFaces = 0;
+    label maxProcPatches = 0;
+    label totProcPatches = 0;
+    label maxProcFaces = 0;
+
+    // Write out the meshes
+    
+    // holds reference to processorN/constant/polyMesh/points
+    // Create processor points
+    const labelList& curPointLabels = procPointAddressing_;
+
+    const pointField& meshPoints = points();
+
+    labelList pointLookup(nPoints(), -1);
+
+    pointField procPoints(curPointLabels.size());
+
+    forAll(curPointLabels, pointi)
+    {
+        procPoints[pointi] = meshPoints[curPointLabels[pointi]];
+
+        pointLookup[curPointLabels[pointi]] = pointi;
+    }
+
+    // Create processor faces
+    const labelList& curFaceLabels = procFaceAddressing_;
+
+    const faceList& meshFaces = faces();
+
+    // labelList faceLookup(nFaces(), -1);
+    labelList faceLookup(nFaces(), -1);
+
+    faceList procFaces(curFaceLabels.size());
+
+    forAll(curFaceLabels, facei)
+    {
+        // Mark the original face as used
+        // Remember to decrement the index by one (turning index)
+        label curF = mag(curFaceLabels[facei]) - 1;
+
+        faceLookup[curF] = facei;
+
+        // get the original face
+        labelList origFaceLabels;
+
+        if (curFaceLabels[facei] >= 0)
+        {
+            // face not turned
+            origFaceLabels = meshFaces[curF];
+        }
+        else
+        {
+            origFaceLabels = meshFaces[curF].reverseFace();
+        }
+
+        // translate face labels into local point list
+        face& procFaceLabels = procFaces[facei];
+
+        procFaceLabels.setSize(origFaceLabels.size());
+
+        forAll(origFaceLabels, pointi)
+        {
+            procFaceLabels[pointi] = pointLookup[origFaceLabels[pointi]];
+        }
+    }
+
+    // Create processor cells
+    const labelList& curCellLabels = procCellAddressing_;
+
+    const cellList& meshCells = cells();
+
+    cellList procCells(curCellLabels.size());
+
+    forAll(curCellLabels, celli)
+    {
+        const labelList& origCellLabels = meshCells[curCellLabels[celli]];
+
+        cell& curCell = procCells[celli];
+
+        curCell.setSize(origCellLabels.size());
+
+        forAll(origCellLabels, cellFacei)
+        {
+            curCell[cellFacei] = faceLookup[origCellLabels[cellFacei]];
+        }
+    }
+
+    // Create processor mesh without a boundary
+    fileName processorCasePath
+    (
+        time().caseName()/("processor" + Foam::name(procNo_))
+    );
+
+    // create a database
+    Time processorDb
+    (
+        Time::controlDictName,
+        time().rootPath(),
+        processorCasePath,
+        word("system"),
+        word("constant"),
+        false
+    );
+    processorDb.setTime(time());
+
+    // create the mesh. Two situations:
+    // - points and faces come from the same time ('instance'). The mesh
+    //   will get constructed in the same instance.
+    // - points come from a different time (moving mesh cases).
+    //   It will read the points belonging to the faces instance and
+    //   construct the procMesh with it which then gets handled as above.
+    //   (so with 'old' geometry).
+    //   Only at writing time will it additionally write the current
+    //   points.
+
+    autoPtr<polyMesh> procMeshPtr;
+
+    if (facesInstancePointsPtr_)
+    {
+        // Construct mesh from facesInstance.
+        pointField facesInstancePoints
+        (
+            facesInstancePointsPtr_(),
+            curPointLabels
+        );
+
+        procMeshPtr = autoPtr<polyMesh>::New
+        (
+            IOobject
+            (
+                this->polyMesh::name(), // region of undecomposed mesh
+                facesInstance(),
+                processorDb,
+                IOobject::NO_READ,
+                IOobject::AUTO_WRITE
+            ),
+            std::move(facesInstancePoints),
+            std::move(procFaces),
+            std::move(procCells)
+        );
+    }
+    else
+    {
+        // Pout << procPoints << endl;
+        // Pout << procFaces << endl;
+        // Pout << procCells << endl;
+        procMeshPtr = autoPtr<polyMesh>::New
+        (
+            IOobject
+            (
+                this->polyMesh::name(), // region of undecomposed mesh
+                facesInstance(),
+                processorDb,
+                IOobject::NO_READ,
+                IOobject::AUTO_WRITE
+            ),
+            std::move(procPoints),
+            std::move(procFaces),
+            // procCells variable contains negative values and
+            // because of that the program is throwing an error
+            std::move(procCells)
+        );
+    }
+    polyMesh& procMesh = procMeshPtr();
+
+    // Create processor boundary patches
+    const labelList& curPatchSizes = procPatchSize_;
+
+    const labelList& curPatchStarts = procPatchStartIndex_;
+
+    const labelList& curNeighbourProcessors =
+        procNeighbourProcessors_;
+
+    const labelList& curProcessorPatchSizes =
+        procProcessorPatchSize_;
+
+    const labelList& curProcessorPatchStarts =
+        procProcessorPatchStartIndex_;
+
+    const labelListList& curSubPatchIDs =
+        procProcessorPatchSubPatchIDs_;
+
+    const labelListList& curSubStarts =
+        procProcessorPatchSubPatchStarts_;
+
+    const polyPatchList& meshPatches = boundaryMesh();
+
+    // Count the number of inter-proc patches
+    label nInterProcPatches = 0;
+    forAll(curSubPatchIDs, procPatchi)
+    {
+        nInterProcPatches += curSubPatchIDs[procPatchi].size();
+    }
+
+    PtrList<polyPatch> procPatches
+    (
+        curPatchSizes.size() + nInterProcPatches
+    );
+
+    label nPatches = 0;
+
+    forAll(curPatchSizes, patchi)
+    {
+        // Get the face labels consistent with the field mapping
+        // (reuse the patch field mappers)
+        const polyPatch& meshPatch = meshPatches[patchi];
+
+        fvFieldDecomposer::patchFieldDecomposer patchMapper
+        (
+            SubList<label>
+            (
+                curFaceLabels,
+                curPatchSizes[patchi],
+                curPatchStarts[patchi]
+            ),
+            meshPatch.start()
+        );
+
+        // Map existing patches
+        procPatches.set
+        (
+            nPatches,
+            meshPatch.clone
+            (
+                procMesh.boundaryMesh(),
+                nPatches,
+                patchMapper.directAddressing(),
+                curPatchStarts[patchi]
+            )
+        );
+
+        nPatches++;
+    }
+
+    forAll(curProcessorPatchSizes, procPatchi)
+    {
+        const labelList& subPatchID = curSubPatchIDs[procPatchi];
+        const labelList& subStarts = curSubStarts[procPatchi];
+
+        label curStart = curProcessorPatchStarts[procPatchi];
+
+        forAll(subPatchID, i)
+        {
+            label size =
+            (
+                i < subPatchID.size()-1
+                ? subStarts[i+1] - subStarts[i]
+                : curProcessorPatchSizes[procPatchi] - subStarts[i]
+            );
+
+            if (subPatchID[i] == -1)
+            {
+                // From internal faces
+                procPatches.set
+                (
+                    nPatches,
+                    new processorPolyPatch
+                    (
+                        size,
+                        curStart,
+                        nPatches,
+                        procMesh.boundaryMesh(),
+                        procNo_,
+                        curNeighbourProcessors[procPatchi]
+                    )
+                );
+            }
+            else
+            {
+                const coupledPolyPatch& pcPatch
+                    = refCast<const coupledPolyPatch>
+                        (
+                            boundaryMesh()[subPatchID[i]]
+                        );
+
+                procPatches.set
+                (
+                    nPatches,
+                    new processorCyclicPolyPatch
+                    (
+                        size,
+                        curStart,
+                        nPatches,
+                        procMesh.boundaryMesh(),
+                        procNo_,
+                        curNeighbourProcessors[procPatchi],
+                        pcPatch.name(),
+                        pcPatch.transform()
+                    )
+                );
+            }
+
+            curStart += size;
+            ++nPatches;
+        }
+    }
+    // Pout << procPatches << endl;
+    // Info << procMesh << endl;
+    procMesh.addPatches(procPatches);
+
+    // Point zones
+    {
+        // const pointZoneMesh& pz = pointZones();
+
+        // Go through all the zoned points and find out if they
+        // belong to a zone.  If so, add it to the zone as
+        // necessary
+        // List<DynamicList<label>> zonePoints(pz.size());
+
+        // // Estimate size
+        // forAll(zonePoints, zonei)
+        // {
+        //     zonePoints[zonei].setCapacity(pz[zonei].size()/nProcs_);
+        // }
+
+    //     // Use the pointToZone map to find out the single zone (if any),
+    //     // use slow search only for shared points.
+    //     forAll(curPointLabels, pointi)
+    //     {
+    //         label curPoint = curPointLabels[pointi];
+
+    //         label zonei = pointToZone[curPoint];
+
+    //         if (zonei >= 0)
+    //         {
+    //             // Single zone.
+    //             zonePoints[zonei].append(pointi);
+    //         }
+    //         else if (zonei == -2)
+    //         {
+    //             // Multiple zones. Lookup.
+    //             forAll(pz, zonei)
+    //             {
+    //                 label index = pz[zonei].whichPoint(curPoint);
+
+    //                 if (index != -1)
+    //                 {
+    //                     zonePoints[zonei].append(pointi);
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     procMesh.pointZones().clearAddressing();
+    //     procMesh.pointZones().setSize(zonePoints.size());
+    //     forAll(zonePoints, zonei)
+    //     {
+    //         procMesh.pointZones().set
+    //         (
+    //             zonei,
+    //             pz[zonei].clone
+    //             (
+    //                 procMesh.pointZones(),
+    //                 zonei,
+    //                 zonePoints[zonei].shrink()
+    //             )
+    //         );
+    //     }
+
+    //     if (pz.size())
+    //     {
+    //         // Force writing on all processors
+    //         procMesh.pointZones().writeOpt(IOobject::AUTO_WRITE);
+    //     }
+    }
+
+    
 
     return true;
 }

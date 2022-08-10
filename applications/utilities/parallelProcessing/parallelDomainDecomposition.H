@@ -40,6 +40,7 @@ SourceFiles
 #define parallelDomainDecomposition_H
 
 #include "fvMesh.H"
+#include "simpleGeomDecomp.H"
 #include "labelList.H"
 #include "point.H"
 #include "Time.H"
@@ -53,7 +54,8 @@ namespace Foam
     \*---------------------------------------------------------------------------*/
 
     class parallelDomainDecomposition
-        : public fvMesh
+        : public fvMesh,
+          public simpleGeomDecomp
     {
     private:
         //- Optional: points at the facesInstance
@@ -99,9 +101,19 @@ namespace Foam
         );
 
         void append(labelList& lst, const label elem);
+        void mark
+        (
+            const labelList& zoneElems,
+            const label zoneI,
+            labelList& elementToZone
+        );
+
+        labelList simpleDecomposition(const pointField& cellPoints);
+        std::pair<label, label> assignToProcessorGroup(labelList& processorGroup, const label nProcGroup);
+        std::pair<label, label> nnn(labelList& processorGroup, const label nProcGroup);
 
     public:
-        parallelDomainDecomposition(const IOobject& io, label procNo, label nProcs);
+        parallelDomainDecomposition(const IOobject& io, const IOdictionary& dict, label procNo, label nProcs);
         ~parallelDomainDecomposition() = default;
 
         void decomposeMesh();
