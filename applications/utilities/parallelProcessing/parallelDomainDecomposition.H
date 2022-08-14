@@ -40,6 +40,7 @@ SourceFiles
 #define parallelDomainDecomposition_H
 
 #include "fvMesh.H"
+#include "simpleGeomDecomp.H"
 #include "labelList.H"
 #include "point.H"
 #include "Time.H"
@@ -53,10 +54,13 @@ namespace Foam
     \*---------------------------------------------------------------------------*/
 
     class parallelDomainDecomposition
-        : public fvMesh
+        : public fvMesh,
+          public simpleGeomDecomp
     {
     private:
+        autoPtr<pointIOField> facesInstancePointsPtr_;
         label procNo_;
+        label nProcs_;
         labelList cellToProc_;
         labelList procPointAddressing_;
         labelList procCellAddressing_;
@@ -68,19 +72,54 @@ namespace Foam
         labelListList procProcessorPatchSubPatchIDs_;
         labelListList procProcessorPatchSubPatchStarts_;
 
-        //- Optional: points at the facesInstance
-        autoPtr<pointIOField> facesInstancePointsPtr_;
-        List<DynamicList<label>> procFaceAddressing_;
+        DynamicList<label> procFaceAddressing_;
 
         void distributeCells();
+        labelList assignCellsToProc(const labelUList& map);
+        void addInterProcFace
+        (
+            const label facei,
+            const label ownerProc,
+            const label nbrProc,
+
+            List<Map<label>>& nbrToInterPatch,
+            List<DynamicList<DynamicList<label>>>& interPatchFaces
+        ) const;
+
+        //- Generate sub patch info for processor cyclics
+        template<class BinaryOp>
+        void processInterCyclics
+        (
+            const polyBoundaryMesh& patches,
+            List<DynamicList<DynamicList<label>>>& interPatchFaces,
+            List<Map<label>>& procNbrToInterPatch,
+            labelListList& subPatchIDs,
+            labelListList& subPatchStarts,
+            bool owner,
+            BinaryOp bop
+        );
+
+        void append(labelList& lst, const label elem);
+        void mark
+        (
+            const labelList& zoneElems,
+            const label zoneI,
+            labelList& elementToZone
+        );
+
+        labelList simpleDecomposition(const pointField& cellPoints);
+        std::pair<label, label> assignToProcessorGroup(labelList& processorGroup, const label nProcGroup);
+        std::pair<label, label> nnn(labelList& processorGroup, const label nProcGroup);
 
     public:
-        parallelDomainDecomposition(const IOobject& io, label procNo);
+        parallelDomainDecomposition(const IOobject& io, const IOdictionary& dict, label procNo, label nProcs);
         ~parallelDomainDecomposition() = default;
 
         void decomposeMesh();
         bool writeDecomposition();
 
+        inline label nProcs() { return nProcs_; }
+        inline label procNo() { return procNo_; }
     };
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
