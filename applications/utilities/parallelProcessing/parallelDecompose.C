@@ -189,6 +189,15 @@ int main(int argc, char* argv[]) {
         Pstream::nProcs()
     );
 
+    // #include "PstreamReduceOps.H"
+    // labelList data(8, 0);
+    // data[Pstream::myProcNo() * 2] = Pstream::myProcNo();
+    // data[Pstream::myProcNo() * 2 + 1] = Pstream::myProcNo();
+
+    // reduce(data, sumOp<labelList>());
+
+    // Info << data << endl;
+
     mesh.decomposeMesh();
     mesh.writeDecomposition();
 
