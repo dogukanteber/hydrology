@@ -46,6 +46,7 @@ License
 #include "pointSet.H"
 #include "OPstream.H"
 #include "IPstream.H"
+#include "PstreamReduceOps.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -98,11 +99,8 @@ struct vectorLessOp
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-/*
-    !!! CAUTION !!!
-    This method is tested only when nProcGroup == nProcs and nProcGroup == 1
-    It is left this way because the time strict
-*/
+
+// Clean up is required
 std::pair<label, label> Foam::parallelDomainDecomposition::assignToProcessorGroup(
     labelList& processorGroup,
     const label nProcGroup
@@ -131,13 +129,13 @@ std::pair<label, label> Foam::parallelDomainDecomposition::assignToProcessorGrou
         }
         range.first = startIndex;
         range.second = endIndex;
-        // Pout << startIndex << " - " << endIndex << endl;
+
         for (; startIndex < endIndex; startIndex++)
         {
             processorGroup[startIndex] = procNo;
         }
     }
-    else
+    else if (nProcGroup == 1)
     {
         // when nProcGroups is 1, distribute the workload among processes
         label cellsPerProc = totalCells / nProcs;
@@ -159,17 +157,48 @@ std::pair<label, label> Foam::parallelDomainDecomposition::assignToProcessorGrou
             processorGroup[startIndex] = 0;
         }
     }
+    else if (nProcGroup < nProcs)
+    {
+        label cellsPerProc = totalCells / nProcGroup;
+        label remainder = totalCells % nProcGroup;
+        
+        if (procNo < remainder)
+        {
+            startIndex = procNo * (cellsPerProc + 1);
+            endIndex = startIndex + (cellsPerProc + 1);
+        }
+        else
+        {
+            startIndex = procNo * cellsPerProc + remainder;
+            endIndex = startIndex + cellsPerProc;
+        }
+
+        if (startIndex >= totalCells)
+        {
+            startIndex = 0;
+            endIndex = 0;
+        }
+        range.first = startIndex;
+        range.second = endIndex;
+        for (; startIndex < endIndex; startIndex++)
+        {
+            processorGroup[startIndex] = procNo;
+        }
+    }
+    else
+    {
+        FatalErrorInFunction
+            << ": Dividing a direction that is bigger then the total number of processes. "
+            << "Total number of processes : " << nProcs << " Direction : " << nProcGroup
+            << exit(FatalError);
+    }
 
     return range;
 }
 
 Foam::labelList Foam::parallelDomainDecomposition::simpleDecomposition(const pointField& cellPoints)
 {
-    // fileName outputDir = cwd()/"simpleDecomp";
-    // mkDir(outputDir);
-    // autoPtr<OFstream> outputFilePtr;
-
-    labelList finalDecomp(cellPoints.size(), -1);
+    labelList finalDecomp(cellPoints.size(), 0);
 
     labelList processorGroups(cellPoints.size());
 
@@ -209,56 +238,9 @@ Foam::labelList Foam::parallelDomainDecomposition::simpleDecomposition(const poi
         finalDecomp[pointIndices[i]] += n_.x()*n_.y()*processorGroups[i];
     }
 
-    labelListList n_finalDecomp(UPstream::nProcs());
-    n_finalDecomp[UPstream::myProcNo()] = finalDecomp;
-    Pstream::gatherList(n_finalDecomp);
+    reduce(finalDecomp, sumOp<labelList>());
 
-    labelList combined(
-        ListListOps::combine<labelList>(n_finalDecomp, accessOp<labelList>())
-    );
-
-    labelList finalVersion(cellPoints.size());
-    if (Pstream::master())
-    {
-        const label meshSize = cellPoints.size();
-        const label totalMeshSize = cellPoints.size() * Pstream::nProcs();
-
-        label start = 0;
-        label end = totalMeshSize;
-        label index = 0;
-        while ( start < end )
-        {
-            label currentElement = combined[start];
-            label invalid(-1);
-            while (currentElement != invalid)
-            {
-                finalVersion[index] = currentElement;
-                index++;
-                start++;
-                // Info << start << endl;
-                if (start == end)
-                {
-                    break;
-                }
-                currentElement = combined[start];
-            }
-            if (start == end)
-            {
-                break;
-            }
-            if (finalVersion[index-1] == Pstream::lastSlave())
-            {
-                start = start - (meshSize * (Pstream::nProcs() - 1));
-            }
-            else
-            {
-                start += meshSize;
-            }
-        }
-    }
-    Pstream::scatter(finalVersion);
-
-    return finalVersion;
+    return finalDecomp;
 }
 
 void Foam::parallelDomainDecomposition::distributeCells()
@@ -269,7 +251,7 @@ void Foam::parallelDomainDecomposition::distributeCells()
 
     cellToProc_ = simpleDecomposition(this->cellCentres());
 
-    Pout<< "\nFinished decomposition for process " << procNo_ << "in "
+    Pout<< "Finished decomposition for process " << procNo_ << " in "
         << decompositionTime.elapsedCpuTime()
         << " s" << endl;
 }
